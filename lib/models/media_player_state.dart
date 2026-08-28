@@ -63,7 +63,8 @@ class MediaPlayerState {
   }
 
   bool get hasMedia => media != null;
-  bool get isConnected => connectedDevice?.isConnected ?? false;
+  bool get isConnected =>
+      connectedDevice?.connectionState == DeviceConnectionState.connected;
   bool get hasQueue => queue.length > 1;
 
   String get formattedPosition {

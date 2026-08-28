@@ -10,19 +10,16 @@ class DeviceDiscoveryProvider extends StatefulWidget {
   final Widget child;
   final DeviceDiscoveryService? service;
 
-  const DeviceDiscoveryProvider({
-    Key? key,
-    required this.child,
-    this.service,
-  }) : super(key: key);
+  const DeviceDiscoveryProvider({Key? key, required this.child, this.service})
+    : super(key: key);
 
   static DeviceDiscoveryProviderState? _staticState;
 
   static DeviceDiscoveryProviderState of(BuildContext context) {
     if (_staticState != null) return _staticState!;
 
-    final provider =
-        context.dependOnInheritedWidgetOfExactType<_DeviceDiscoveryInherited>();
+    final provider = context
+        .dependOnInheritedWidgetOfExactType<_DeviceDiscoveryInherited>();
     if (provider != null) return provider.state;
 
     throw FlutterError.fromParts([
@@ -50,14 +47,17 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
   List<CastDevice> get devices => _devices;
   String? get errorMessage => _errorMessage;
 
-  List<CastDevice> get connectedDevices =>
-      _devices.where((d) => d.isConnected).toList();
+  List<CastDevice> get connectedDevices => _devices
+      .where((d) => d.connectionState == DeviceConnectionState.connected)
+      .toList();
 
-  List<CastDevice> get availableDevices =>
-      _devices.where((d) => d.isAvailable || d.isConnecting).toList();
+  List<CastDevice> get availableDevices => _devices
+      .where((d) => d.connectionState == DeviceConnectionState.disconnected)
+      .toList();
 
-  List<CastDevice> get unavailableDevices =>
-      _devices.where((d) => d.isUnavailable).toList();
+  List<CastDevice> get unavailableDevices => _devices
+      .where((d) => d.connectionState == DeviceConnectionState.error)
+      .toList();
 
   @override
   void initState() {
@@ -125,20 +125,14 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
 
   @override
   Widget build(BuildContext context) {
-    return _DeviceDiscoveryInherited(
-      state: this,
-      child: widget.child,
-    );
+    return _DeviceDiscoveryInherited(state: this, child: widget.child);
   }
 }
 
 class _DeviceDiscoveryInherited extends InheritedWidget {
   final DeviceDiscoveryProviderState state;
 
-  const _DeviceDiscoveryInherited({
-    required this.state,
-    required super.child,
-  });
+  const _DeviceDiscoveryInherited({required this.state, required super.child});
 
   @override
   bool updateShouldNotify(_DeviceDiscoveryInherited oldWidget) {

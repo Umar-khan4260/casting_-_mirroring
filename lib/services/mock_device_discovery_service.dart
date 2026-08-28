@@ -10,28 +10,26 @@ class MockDeviceDiscoveryService implements DeviceDiscoveryService {
     CastDevice(
       id: '1',
       name: 'Living Room TV',
-      type: 'tv',
-      model: 'Google TV',
+      type: DeviceType.googleCast,
       connectionState: DeviceConnectionState.connected,
-      mediaCasting: true,
-      screenMirroring: true,
+      supportsMediaCasting: true,
+      supportsScreenMirroring: true,
     ),
     CastDevice(
       id: '2',
-      name: 'Bedroom TV',
-      type: 'chromecast',
-      model: 'Chromecast',
-      connectionState: DeviceConnectionState.available,
-      mediaCasting: true,
-      screenMirroring: false,
+      name: 'Bedroom Apple TV',
+      type: DeviceType.appleAirPlay,
+      connectionState: DeviceConnectionState.disconnected,
+      supportsMediaCasting: true,
+      supportsScreenMirroring: true,
     ),
     CastDevice(
       id: '3',
       name: 'Kitchen Speaker',
-      type: 'speaker',
-      connectionState: DeviceConnectionState.unavailable,
-      mediaCasting: false,
-      screenMirroring: false,
+      type: DeviceType.unknown,
+      connectionState: DeviceConnectionState.disconnected,
+      supportsMediaCasting: true,
+      supportsScreenMirroring: false,
     ),
   ];
 
@@ -44,8 +42,8 @@ class MockDeviceDiscoveryService implements DeviceDiscoveryService {
 
     _devices = _mockDevices.map((d) {
       if (d.connectionState == DeviceConnectionState.connected) return d;
-      if (d.connectionState == DeviceConnectionState.unavailable) {
-        return d.copyWith(connectionState: DeviceConnectionState.available);
+      if (d.connectionState == DeviceConnectionState.error) {
+        return d.copyWith(connectionState: DeviceConnectionState.disconnected);
       }
       return d;
     }).toList();
@@ -78,7 +76,7 @@ class MockDeviceDiscoveryService implements DeviceDiscoveryService {
     if (index == -1) return;
 
     _devices[index] = _devices[index].copyWith(
-      connectionState: DeviceConnectionState.available,
+      connectionState: DeviceConnectionState.disconnected,
     );
     _controller.add(List.unmodifiable(_devices));
   }

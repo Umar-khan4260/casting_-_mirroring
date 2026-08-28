@@ -56,16 +56,15 @@ class _DeviceActionSheetState extends State<DeviceActionSheet>
       duration: const Duration(milliseconds: 300),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _controller.forward();
   }
@@ -79,9 +78,10 @@ class _DeviceActionSheetState extends State<DeviceActionSheet>
   @override
   Widget build(BuildContext context) {
     final device = widget.device;
-    final isConnected = device.isConnected;
-    final showCast = device.mediaCasting;
-    final showMirror = device.screenMirroring;
+    final isConnected =
+        device.connectionState == DeviceConnectionState.connected;
+    final showCast = device.supportsMediaCasting;
+    final showMirror = device.supportsScreenMirroring;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -115,7 +115,8 @@ class _DeviceActionSheetState extends State<DeviceActionSheet>
                           _ActionCard(
                             icon: Icons.movie_creation_outlined,
                             title: 'Cast Media',
-                            subtitle: 'Watch videos and listen to music on your TV',
+                            subtitle:
+                                'Watch videos and listen to music on your TV',
                             delay: 100,
                             controller: _controller,
                             onTap: () {
@@ -206,7 +207,7 @@ class _DeviceActionSheetState extends State<DeviceActionSheet>
               shape: BoxShape.circle,
             ),
             child: Icon(
-              _deviceIcon(device.type),
+              _deviceIcon(device.type.name),
               size: 32,
               color: isConnected ? AppColors.primary : AppColors.textSecondary,
             ),
@@ -219,7 +220,7 @@ class _DeviceActionSheetState extends State<DeviceActionSheet>
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            isConnected ? 'Connected' : (device.model ?? 'Available'),
+            isConnected ? 'Connected' : 'Available',
             style: AppTypography.bodyMedium.copyWith(
               color: isConnected ? AppColors.primary : AppColors.textSecondary,
             ),
@@ -295,7 +296,9 @@ class _ActionCard extends StatelessWidget {
                 padding: AppSpacing.paddingAllSm,
                 decoration: BoxDecoration(
                   color: AppColors.primary.withAlpha(26),
-                  borderRadius: BorderRadius.circular(AppSpacing.borderRadiusSm),
+                  borderRadius: BorderRadius.circular(
+                    AppSpacing.borderRadiusSm,
+                  ),
                 ),
                 child: Icon(icon, color: AppColors.primary, size: 24),
               ),
@@ -311,10 +314,7 @@ class _ActionCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: AppTypography.bodySmall,
-                    ),
+                    Text(subtitle, style: AppTypography.bodySmall),
                   ],
                 ),
               ),
