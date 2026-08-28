@@ -87,7 +87,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return DeviceCard(
       device: device,
       onTap: () {
-        if (device.isConnected) {
+        if (device.connectionState == DeviceConnectionState.connected) {
           DeviceActionSheet.show(
             context,
             device: device,
@@ -95,7 +95,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
             onMirrorScreen: () {},
             onDisconnect: () => provider.disconnect(device),
           );
-        } else if (device.isAvailable) {
+        } else if (device.connectionState ==
+            DeviceConnectionState.disconnected) {
           provider.connectTo(device);
         }
       },

@@ -1,53 +1,46 @@
+enum DeviceType { googleCast, appleAirPlay, unknown }
+
 enum DeviceConnectionState {
-  unavailable,
-  available,
+  disconnected,
   connecting,
   connected,
+  disconnecting,
+  error,
 }
 
 class CastDevice {
   final String id;
   final String name;
-  final String type;
+  final DeviceType type;
   final DeviceConnectionState connectionState;
-  final bool mediaCasting;
-  final bool screenMirroring;
-  final String? model;
+  final bool supportsMediaCasting;
+  final bool supportsScreenMirroring;
 
   const CastDevice({
     required this.id,
     required this.name,
     required this.type,
-    this.connectionState = DeviceConnectionState.available,
-    this.mediaCasting = false,
-    this.screenMirroring = false,
-    this.model,
+    this.connectionState = DeviceConnectionState.disconnected,
+    this.supportsMediaCasting = false,
+    this.supportsScreenMirroring = false,
   });
 
   CastDevice copyWith({
     String? id,
     String? name,
-    String? type,
+    DeviceType? type,
     DeviceConnectionState? connectionState,
-    bool? mediaCasting,
-    bool? screenMirroring,
-    String? model,
+    bool? supportsMediaCasting,
+    bool? supportsScreenMirroring,
   }) {
     return CastDevice(
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
       connectionState: connectionState ?? this.connectionState,
-      mediaCasting: mediaCasting ?? this.mediaCasting,
-      screenMirroring: screenMirroring ?? this.screenMirroring,
-      model: model ?? this.model,
+      supportsMediaCasting: supportsMediaCasting ?? this.supportsMediaCasting,
+      supportsScreenMirroring:
+          supportsScreenMirroring ?? this.supportsScreenMirroring,
     );
   }
-
-  bool get isConnected => connectionState == DeviceConnectionState.connected;
-  bool get isAvailable => connectionState == DeviceConnectionState.available;
-  bool get isConnecting => connectionState == DeviceConnectionState.connecting;
-  bool get isUnavailable => connectionState == DeviceConnectionState.unavailable;
-
-  bool get hasAnyCapability => mediaCasting || screenMirroring;
 }
