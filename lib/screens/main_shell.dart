@@ -1,9 +1,12 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'home_screen.dart';
-import 'media_screen.dart';
+import 'media_library_screen.dart';
 import 'devices_screen.dart';
 import 'settings_screen.dart';
-import '../mock/mock_data.dart';
+import 'cast_player_screen.dart';
+import '../models/media_player_state.dart';
+import '../providers/app_casting_controller.dart';
 import '../widgets/player/mini_player.dart';
 
 class MainShell extends StatefulWidget {
@@ -14,17 +17,36 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  bool _showMiniPlayer = true;
+  final AppCastingController _castingController = AppCastingController();
 
   final List<Widget> _screens = [
     const HomeScreen(),
-    const MediaScreen(),
+    const MediaLibraryScreen(),
     const DevicesScreen(),
     const SettingsScreen(),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _castingController.addListener(_onCastingChanged);
+  }
+
+  @override
+  void dispose() {
+    _castingController.removeListener(_onCastingChanged);
+    super.dispose();
+  }
+
+  void _onCastingChanged() {
+    setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final state = _castingController.state;
+    final showMiniPlayer = _castingController.isCasting;
+
     return Stack(
       children: [
         CupertinoTabScaffold(
@@ -59,23 +81,34 @@ class _MainShellState extends State<MainShell> {
             );
           },
         ),
-        if (_showMiniPlayer)
+        if (showMiniPlayer)
           Positioned(
             left: 0,
             right: 0,
-            bottom: 50, // Above the tab bar
+            bottom: 50,
             child: MiniPlayer(
-              media: MockData.mediaItems[0],
-              onTap: () {},
-              onPlayPause: () {},
+              playerState: state,
+              onTap: () {
+                _openFullPlayer(state);
+              },
+              onPlayPause: () {
+                _castingController.playPause();
+              },
               onClose: () {
-                setState(() {
-                  _showMiniPlayer = false;
-                });
+                _castingController.disconnect();
               },
             ),
           ),
       ],
+    );
+  }
+
+  void _openFullPlayer(MediaPlayerState state) {
+    if (state.media == null) return;
+    Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (_) => CastPlayerScreen(media: state.media!),
+      ),
     );
   }
 }

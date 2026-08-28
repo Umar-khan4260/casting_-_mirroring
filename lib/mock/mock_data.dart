@@ -6,6 +6,8 @@ class MockData {
       'type': 'tv',
       'isConnected': true,
       'ip': '192.168.1.10',
+      'mediaCasting': true,
+      'screenMirroring': true,
     },
     {
       'id': '2',
@@ -13,6 +15,8 @@ class MockData {
       'type': 'apple_tv',
       'isConnected': false,
       'ip': '192.168.1.12',
+      'mediaCasting': true,
+      'screenMirroring': false,
     },
     {
       'id': '3',
@@ -20,6 +24,8 @@ class MockData {
       'type': 'speaker',
       'isConnected': false,
       'ip': '192.168.1.15',
+      'mediaCasting': false,
+      'screenMirroring': false,
     },
   ];
 
