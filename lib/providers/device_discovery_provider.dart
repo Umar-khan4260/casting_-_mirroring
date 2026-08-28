@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/cast_device.dart';
 import '../services/device_discovery_service.dart';
-import '../services/mock_device_discovery_service.dart';
+import '../services/real_device_discovery_service.dart';
 
 enum DiscoveryState { idle, loading, loaded, error }
 
@@ -63,7 +63,7 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
   void initState() {
     super.initState();
     DeviceDiscoveryProvider._staticState = this;
-    _service = widget.service ?? MockDeviceDiscoveryService();
+    _service = widget.service ?? RealDeviceDiscoveryService();
     _subscription = _service.deviceStream.listen((devices) {
       setState(() {
         _devices = devices;
@@ -78,7 +78,7 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
     DeviceDiscoveryProvider._staticState = null;
     _subscription?.cancel();
     final service = _service;
-    if (service is MockDeviceDiscoveryService) {
+    if (service is RealDeviceDiscoveryService) {
       service.dispose();
     }
     super.dispose();
@@ -108,7 +108,7 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
       await _service.connectToDevice(device);
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to connect to ${device.name}.';
+        _errorMessage = 'Failed to connect to \.';
       });
     }
   }
@@ -118,7 +118,7 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
       await _service.disconnectDevice(device);
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to disconnect from ${device.name}.';
+        _errorMessage = 'Failed to disconnect from \.';
       });
     }
   }
