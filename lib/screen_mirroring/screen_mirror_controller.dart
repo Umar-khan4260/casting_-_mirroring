@@ -2,25 +2,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../casting_core/interfaces/screen_mirroring_interface.dart';
 import 'air_play_channel.dart';
+import '../utils/cast_logger.dart';
 
-/// Controller for screen mirroring state management.
-///
-/// This controller exposes the AirPlay mirroring state to the Flutter UI.
-/// It communicates with the native iOS AirPlayPlugin via [AirPlayChannel].
-///
-/// ## iOS Platform Limitation
-///
-/// **Third-party apps CANNOT programmatically initiate full-device AirPlay mirroring.**
-/// The user must manually go to Control Center → Screen Mirroring to mirror
-/// the entire iPhone screen (home screen, other apps, system UI).
-///
-/// What this controller supports:
-/// - Detecting AirPlay route availability
-/// - Presenting the system AirPlay route picker (for media routing)
-/// - Detecting when system-level screen mirroring is active (user-initiated)
-/// - Tracking connection state
-///
-/// For full-device mirroring guidance, see [showMirroringGuide].
+const _log = CastLogger('ScreenMirrorCtrl');
+
 class ScreenMirrorController extends ChangeNotifier {
   final AirPlayChannel _airPlayChannel = AirPlayChannel();
 
@@ -38,16 +23,29 @@ class ScreenMirrorController extends ChangeNotifier {
       _state == MirroringState.airPlayConnected ||
       _state == MirroringState.systemMirroringActive;
 
-  /// Initialize the controller and start monitoring AirPlay state.
   Future<void> initialize() async {
-    _isAirPlayAvailable = await _airPlayChannel.isAirPlayAvailable();
+    try {
+      _isAirPlayAvailable = await _airPlayChannel.isAirPlayAvailable();
+    } catch (e) {
+      _log.error('Failed to check AirPlay availability', e);
+      _isAirPlayAvailable = false;
+    }
     notifyListeners();
 
-    await _airPlayChannel.startMonitoring();
+    try {
+      await _airPlayChannel.startMonitoring();
+    } catch (e) {
+      _log.error('Failed to start AirPlay monitoring', e);
+    }
 
-    _eventSubscription = _airPlayChannel.events.listen(_onNativeEvent);
+    _eventSubscription?.cancel();
+    _eventSubscription = _airPlayChannel.events.listen(
+      _onNativeEvent,
+      onError: (e) {
+        _log.error('AirPlay event stream error', e);
+      },
+    );
 
-    // Get initial status
     await _refreshStatus();
   }
 
@@ -64,11 +62,13 @@ class ScreenMirrorController extends ChangeNotifier {
       case 'systemMirroringStarted':
         _state = MirroringState.systemMirroringActive;
         _connectedRouteName = data['connectedDeviceName'] as String?;
+        _log.info('System mirroring started: $_connectedRouteName');
         notifyListeners();
         break;
       case 'systemMirroringStopped':
         _state = MirroringState.idle;
         _connectedRouteName = null;
+        _log.info('System mirroring stopped');
         notifyListeners();
         break;
     }
@@ -82,7 +82,8 @@ class ScreenMirrorController extends ChangeNotifier {
 
     if (isSystemMirroring) {
       _state = MirroringState.systemMirroringActive;
-      _connectedRouteName = status['mirroredScreenName'] as String? ?? deviceName;
+      _connectedRouteName =
+          status['mirroredScreenName'] as String? ?? deviceName;
     } else if (isAirPlayConnected) {
       _state = MirroringState.airPlayConnected;
       _connectedRouteName = deviceName;
@@ -94,43 +95,37 @@ class ScreenMirrorController extends ChangeNotifier {
       _connectedRouteName = null;
     }
 
+    _errorMessage = null;
     notifyListeners();
   }
 
   Future<void> _refreshStatus() async {
-    final status = await _airPlayChannel.getMirroringStatus();
-    _updateFromStatus(status);
+    try {
+      final status = await _airPlayChannel.getMirroringStatus();
+      _updateFromStatus(status);
+    } catch (e) {
+      _log.error('Failed to refresh AirPlay status', e);
+    }
   }
 
-  /// Show the system AirPlay route picker.
-  ///
-  /// This presents the standard iOS AVRoutePickerView where the user can
-  /// select an AirPlay receiver. On Apple TV, this enables media routing.
-  ///
-  /// NOTE: This routes media content (video/audio) to the AirPlay receiver.
-  /// For full-device screen mirroring, the user must use Control Center.
   Future<bool> showRoutePicker() async {
     try {
       final result = await _airPlayChannel.showRoutePicker();
       final success = result['success'] as bool? ?? false;
 
-      // Refresh status after picker is dismissed
       await Future.delayed(const Duration(milliseconds: 500));
       await _refreshStatus();
 
       return success;
     } catch (e) {
-      _errorMessage = 'Failed to show route picker: $e';
+      _log.error('showRoutePicker failed', e);
+      _errorMessage = 'Could not show AirPlay device picker.';
       _state = MirroringState.error;
       notifyListeners();
       return false;
     }
   }
 
-  /// Get a user-friendly guide for enabling full-device screen mirroring.
-  ///
-  /// Since iOS does not allow third-party apps to initiate AirPlay mirroring,
-  /// this returns instructions the user can follow manually.
   String getMirroringGuide() {
     return 'To mirror your entire iPhone screen to an AirPlay receiver '
         '(like Apple TV):\n\n'
@@ -142,19 +137,19 @@ class ScreenMirrorController extends ChangeNotifier {
         'automatically due to iOS platform restrictions.';
   }
 
-  /// Stop any active mirroring connection.
   Future<void> stopMirroring() async {
     _state = MirroringState.idle;
     _connectedRouteName = null;
     _errorMessage = null;
+    _log.info('Mirroring stopped');
     notifyListeners();
   }
 
-  /// Dispose resources.
   @override
   void dispose() {
     _eventSubscription?.cancel();
     _airPlayChannel.dispose();
+    _log.info('Disposed');
     super.dispose();
   }
 }

@@ -7,6 +7,9 @@ import '../models/cast_device.dart';
 import '../models/cast_queue_state.dart';
 import '../models/media_player_state.dart';
 import '../models/media_item.dart';
+import '../utils/cast_logger.dart';
+
+const _log = CastLogger('AppCasting');
 
 class AppCastingController extends ChangeNotifier {
   static final AppCastingController _instance = AppCastingController._();
@@ -43,11 +46,13 @@ class AppCastingController extends ChangeNotifier {
   CastDevice? get mirroringDevice => _mirroringDevice;
 
   void _emit() {
+    if (_streamController.isClosed) return;
     _streamController.add(_state);
     notifyListeners();
   }
 
   void _emitQueue() {
+    if (_queueStreamController.isClosed) return;
     _queueStreamController.add(_queueState);
     notifyListeners();
   }
@@ -65,21 +70,29 @@ class AppCastingController extends ChangeNotifier {
           _state = _state.copyWith(connectedDevice: _connectedDevice);
           _emit();
         } else if (_connectedDevice != null) {
+          _log.warning('Receiver disconnected');
           _connectedDevice = null;
           _state = _state.copyWith(
             connectedDevice: null,
             status: PlayerStatus.idle,
             isPlaying: false,
+            errorMessage: 'Receiver became unavailable.',
           );
           _queueState = const CastQueueState();
           _emit();
           _emitQueue();
         }
       },
+      onError: (e) {
+        _log.error('Device stream error', e);
+      },
     );
 
     _mediaStatusSubscription = _castingManager.mediaStatusStream.listen(
       _onMediaStatusUpdate,
+      onError: (e) {
+        _log.error('Media status stream error', e);
+      },
     );
 
     _playerPositionSubscription = _castingManager.playerPositionStream.listen(
@@ -87,17 +100,26 @@ class AppCastingController extends ChangeNotifier {
         _state = _state.copyWith(position: position);
         _emit();
       },
+      onError: (e) {
+        _log.error('Player position stream error', e);
+      },
     );
 
     _queueSubscription = _castingManager.queueStream.listen(
       _onQueueUpdate,
+      onError: (e) {
+        _log.error('Queue stream error', e);
+      },
     );
+
+    _log.info('Initialized');
   }
 
   void _onMediaStatusUpdate(CastMediaStatus status) {
     PlayerStatus newStatus;
     if (status.isError) {
       newStatus = PlayerStatus.error;
+      _log.warning('Media error reported by receiver');
     } else if (status.isPlaying) {
       newStatus = PlayerStatus.casting;
     } else if (status.isPaused) {
@@ -117,6 +139,9 @@ class AppCastingController extends ChangeNotifier {
       duration: status.duration,
       volume: status.volume,
       isMuted: status.isMuted,
+      errorMessage: newStatus == PlayerStatus.error
+          ? (_state.errorMessage ?? 'Playback error on receiver.')
+          : null,
     );
     _emit();
   }
@@ -142,20 +167,45 @@ class AppCastingController extends ChangeNotifier {
   }
 
   Future<void> loadAndCast(MediaItem media) async {
+    if (!_state.isConnected && _connectedDevice == null) {
+      _state = _state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: 'Not connected to a device. Please connect first.',
+      );
+      _emit();
+      return;
+    }
+
     _state = _state.copyWith(
       status: PlayerStatus.loading,
       media: media,
       position: Duration.zero,
       duration: media.duration,
+      errorMessage: null,
     );
     _emit();
 
     try {
       await _castingManager.loadMedia(media);
-    } catch (e) {
+    } on CastMediaException catch (e) {
+      _log.error('loadAndCast media error', e);
       _state = _state.copyWith(
         status: PlayerStatus.error,
-        errorMessage: 'Failed to load media: $e',
+        errorMessage: e.message,
+      );
+      _emit();
+    } on CastConnectionException catch (e) {
+      _log.error('loadAndCast connection error', e);
+      _state = _state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: e.message,
+      );
+      _emit();
+    } catch (e) {
+      _log.error('loadAndCast unexpected error', e);
+      _state = _state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: 'Failed to load media. Please try again.',
       );
       _emit();
     }
@@ -164,21 +214,46 @@ class AppCastingController extends ChangeNotifier {
   Future<void> castQueue(List<MediaItem> items, {int startIndex = 0}) async {
     if (items.isEmpty) return;
 
+    if (!_state.isConnected && _connectedDevice == null) {
+      _state = _state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: 'Not connected to a device. Please connect first.',
+      );
+      _emit();
+      return;
+    }
+
     final media = items[startIndex.clamp(0, items.length - 1)];
     _state = _state.copyWith(
       status: PlayerStatus.loading,
       media: media,
       position: Duration.zero,
       duration: media.duration,
+      errorMessage: null,
     );
     _emit();
 
     try {
       await _castingManager.queueLoad(items, startIndex: startIndex);
-    } catch (e) {
+    } on CastMediaException catch (e) {
+      _log.error('castQueue media error', e);
       _state = _state.copyWith(
         status: PlayerStatus.error,
-        errorMessage: 'Failed to load queue: $e',
+        errorMessage: e.message,
+      );
+      _emit();
+    } on CastConnectionException catch (e) {
+      _log.error('castQueue connection error', e);
+      _state = _state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: e.message,
+      );
+      _emit();
+    } catch (e) {
+      _log.error('castQueue unexpected error', e);
+      _state = _state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: 'Failed to load queue. Please try again.',
       );
       _emit();
     }
@@ -193,8 +268,9 @@ class AppCastingController extends ChangeNotifier {
     try {
       await _castingManager.queueInsert([media]);
     } catch (e) {
+      _log.error('addToQueue failed', e);
       _state = _state.copyWith(
-        errorMessage: 'Failed to add to queue: $e',
+        errorMessage: 'Failed to add to queue.',
       );
       _emit();
     }
@@ -211,8 +287,9 @@ class AppCastingController extends ChangeNotifier {
     try {
       await _castingManager.queueInsert(items);
     } catch (e) {
+      _log.error('addMultipleToQueue failed', e);
       _state = _state.copyWith(
-        errorMessage: 'Failed to add items to queue: $e',
+        errorMessage: 'Failed to add items to queue.',
       );
       _emit();
     }
@@ -222,8 +299,9 @@ class AppCastingController extends ChangeNotifier {
     try {
       await _castingManager.queueRemove([index]);
     } catch (e) {
+      _log.error('removeFromQueue failed', e);
       _state = _state.copyWith(
-        errorMessage: 'Failed to remove from queue: $e',
+        errorMessage: 'Failed to remove from queue.',
       );
       _emit();
     }
@@ -233,8 +311,9 @@ class AppCastingController extends ChangeNotifier {
     try {
       await _castingManager.queueReorder(oldIndex, newIndex);
     } catch (e) {
+      _log.error('reorderQueue failed', e);
       _state = _state.copyWith(
-        errorMessage: 'Failed to reorder queue: $e',
+        errorMessage: 'Failed to reorder queue.',
       );
       _emit();
     }
@@ -247,15 +326,18 @@ class AppCastingController extends ChangeNotifier {
       _state = _state.copyWith(queue: [], currentQueueIndex: 0);
       _emit();
       _emitQueue();
-    } catch (_) {}
+    } catch (e) {
+      _log.error('clearQueue failed', e);
+    }
   }
 
   Future<void> jumpToQueueItem(int index) async {
     try {
       await _castingManager.queueJumpTo(index);
     } catch (e) {
+      _log.error('jumpToQueueItem failed', e);
       _state = _state.copyWith(
-        errorMessage: 'Failed to jump to item: $e',
+        errorMessage: 'Failed to jump to item.',
       );
       _emit();
     }
@@ -273,10 +355,25 @@ class AppCastingController extends ChangeNotifier {
       } else {
         await _castingManager.playMedia();
       }
-    } catch (e) {
+    } on CastMediaException catch (e) {
+      _log.error('playPause media error', e);
       _state = _state.copyWith(
         status: PlayerStatus.error,
-        errorMessage: 'Playback control failed: $e',
+        errorMessage: e.message,
+      );
+      _emit();
+    } on CastConnectionException catch (e) {
+      _log.error('playPause connection error', e);
+      _state = _state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: e.message,
+      );
+      _emit();
+    } catch (e) {
+      _log.error('playPause unexpected error', e);
+      _state = _state.copyWith(
+        status: PlayerStatus.error,
+        errorMessage: 'Playback control failed.',
       );
       _emit();
     }
@@ -287,7 +384,9 @@ class AppCastingController extends ChangeNotifier {
 
     try {
       await _castingManager.stopMedia();
-    } catch (_) {}
+    } catch (e) {
+      _log.error('stopMedia failed', e);
+    }
     _state = _state.copyWith(
       status: PlayerStatus.idle,
       isPlaying: false,
@@ -301,10 +400,23 @@ class AppCastingController extends ChangeNotifier {
       await _castingManager.seekMedia(position);
       _state = _state.copyWith(position: position);
       _emit();
-    } catch (e) {
+    } on CastMediaException catch (e) {
+      _log.error('seek media error', e);
+      _state = _state.copyWith(
+        errorMessage: e.message,
+      );
+      _emit();
+    } on CastConnectionException catch (e) {
+      _log.error('seek connection error', e);
       _state = _state.copyWith(
         status: PlayerStatus.error,
-        errorMessage: 'Seek failed: $e',
+        errorMessage: e.message,
+      );
+      _emit();
+    } catch (e) {
+      _log.error('seek unexpected error', e);
+      _state = _state.copyWith(
+        errorMessage: 'Seek failed.',
       );
       _emit();
     }
@@ -320,10 +432,23 @@ class AppCastingController extends ChangeNotifier {
       await _castingManager.setMediaVolume(volume);
       _state = _state.copyWith(volume: volume.clamp(0.0, 1.0), isMuted: false);
       _emit();
-    } catch (e) {
+    } on CastMediaException catch (e) {
+      _log.error('setVolume media error', e);
+      _state = _state.copyWith(
+        errorMessage: e.message,
+      );
+      _emit();
+    } on CastConnectionException catch (e) {
+      _log.error('setVolume connection error', e);
       _state = _state.copyWith(
         status: PlayerStatus.error,
-        errorMessage: 'Volume control failed: $e',
+        errorMessage: e.message,
+      );
+      _emit();
+    } catch (e) {
+      _log.error('setVolume unexpected error', e);
+      _state = _state.copyWith(
+        errorMessage: 'Volume control failed.',
       );
       _emit();
     }
@@ -365,12 +490,15 @@ class AppCastingController extends ChangeNotifier {
   Future<void> disconnect() async {
     try {
       await _castingManager.disconnectMediaDevice();
-    } catch (_) {}
+    } catch (e) {
+      _log.error('disconnect failed', e);
+    }
     _state = const MediaPlayerState();
     _queueState = const CastQueueState();
     _connectedDevice = null;
     _emit();
     _emitQueue();
+    _log.info('Disconnected');
   }
 
   Future<void> startScreenMirroring(CastDevice device) async {
@@ -378,22 +506,38 @@ class AppCastingController extends ChangeNotifier {
       await _castingManager.routeMediaToAirPlay(device);
       _isMirroring = true;
       _mirroringDevice = device;
+      _log.info('Screen mirroring started to ${device.name}');
       notifyListeners();
     } catch (e) {
+      _log.error('startScreenMirroring failed', e);
+      _isMirroring = false;
+      _mirroringDevice = null;
       _state = _state.copyWith(
-        errorMessage: 'Failed to start screen mirroring: $e',
+        errorMessage: 'Screen mirroring is not available. '
+            'Use Control Center to mirror your screen.',
       );
       _emit();
+      notifyListeners();
     }
   }
 
   Future<void> stopScreenMirroring() async {
     try {
       await _castingManager.stopAirPlayRouting();
-    } catch (_) {}
+    } catch (e) {
+      _log.error('stopScreenMirroring failed', e);
+    }
     _isMirroring = false;
     _mirroringDevice = null;
+    _log.info('Screen mirroring stopped');
     notifyListeners();
+  }
+
+  void clearError() {
+    if (_state.errorMessage != null) {
+      _state = _state.copyWith(errorMessage: null);
+      _emit();
+    }
   }
 
   @override
@@ -404,6 +548,7 @@ class AppCastingController extends ChangeNotifier {
     _queueSubscription?.cancel();
     _streamController.close();
     _queueStreamController.close();
+    _log.info('Disposed');
     super.dispose();
   }
 }
