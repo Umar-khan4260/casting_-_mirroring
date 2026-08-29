@@ -1,10 +1,11 @@
 import 'package:flutter/cupertino.dart';
+import '../../models/cast_device.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
 import '../../theme/app_colors.dart';
 
 class ConnectedDeviceCard extends StatelessWidget {
-  final Map<String, dynamic>? device;
+  final CastDevice? device;
   final VoidCallback onSelectDevice;
 
   const ConnectedDeviceCard({
@@ -15,7 +16,10 @@ class ConnectedDeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isConnected = device != null && device!['isConnected'] == true;
+    final isConnected =
+        device?.connectionState == DeviceConnectionState.connected;
+    final isConnecting =
+        device?.connectionState == DeviceConnectionState.connecting;
 
     return GestureDetector(
       onTap: onSelectDevice,
@@ -39,16 +43,24 @@ class ConnectedDeviceCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(
-              isConnected ? CupertinoIcons.tv : CupertinoIcons.tv_circle,
-              size: 48,
-              color: isConnected
-                  ? CupertinoColors.white
-                  : CupertinoColors.systemGrey,
-            ),
+            if (isConnecting)
+              const CupertinoActivityIndicator(
+                color: CupertinoColors.activeBlue,
+                radius: 24,
+              )
+            else
+              Icon(
+                isConnected ? CupertinoIcons.tv : CupertinoIcons.tv_circle,
+                size: 48,
+                color: isConnected
+                    ? CupertinoColors.white
+                    : CupertinoColors.systemGrey,
+              ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              isConnected ? device!['name'] : 'Select a device',
+              isConnected
+                  ? (device?.name ?? 'Connected')
+                  : 'Select a device',
               style: AppTypography.heading3.copyWith(
                 color: isConnected
                     ? CupertinoColors.white
@@ -58,7 +70,11 @@ class ConnectedDeviceCard extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              isConnected ? 'Connected' : 'Tap to connect',
+              isConnected
+                  ? 'Connected'
+                  : isConnecting
+                      ? 'Connecting...'
+                      : 'Tap to connect',
               style: AppTypography.bodyMedium.copyWith(
                 color: isConnected
                     ? CupertinoColors.white.withAlpha(204)
