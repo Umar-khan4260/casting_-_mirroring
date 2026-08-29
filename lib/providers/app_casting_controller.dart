@@ -17,6 +17,8 @@ class AppCastingController extends ChangeNotifier {
 
   MediaPlayerState _state = const MediaPlayerState();
   CastQueueState _queueState = const CastQueueState();
+  bool _isMirroring = false;
+  CastDevice? _mirroringDevice;
   final StreamController<MediaPlayerState> _streamController =
       StreamController<MediaPlayerState>.broadcast();
   final StreamController<CastQueueState> _queueStreamController =
@@ -37,6 +39,8 @@ class AppCastingController extends ChangeNotifier {
       _state.status == PlayerStatus.casting ||
       _state.status == PlayerStatus.paused ||
       _state.status == PlayerStatus.loading;
+  bool get isMirroring => _isMirroring;
+  CastDevice? get mirroringDevice => _mirroringDevice;
 
   void _emit() {
     _streamController.add(_state);
@@ -367,6 +371,29 @@ class AppCastingController extends ChangeNotifier {
     _connectedDevice = null;
     _emit();
     _emitQueue();
+  }
+
+  Future<void> startScreenMirroring(CastDevice device) async {
+    try {
+      await _castingManager.startScreenMirroring(device);
+      _isMirroring = true;
+      _mirroringDevice = device;
+      notifyListeners();
+    } catch (e) {
+      _state = _state.copyWith(
+        errorMessage: 'Failed to start screen mirroring: $e',
+      );
+      _emit();
+    }
+  }
+
+  Future<void> stopScreenMirroring() async {
+    try {
+      await _castingManager.stopScreenMirroring();
+    } catch (_) {}
+    _isMirroring = false;
+    _mirroringDevice = null;
+    notifyListeners();
   }
 
   @override

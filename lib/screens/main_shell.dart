@@ -19,12 +19,31 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   final AppCastingController _castingController = AppCastingController();
 
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const MediaLibraryScreen(),
-    const DevicesScreen(),
-    const SettingsScreen(),
-  ];
+  List<Widget> _buildScreens() {
+    return [
+      HomeScreen(
+        onSwitchToDevices: () {
+          // Navigate to devices screen using Navigator
+          Navigator.of(context).push(
+            CupertinoPageRoute(
+              builder: (_) => const DevicesScreen(),
+            ),
+          );
+        },
+        onSwitchToMedia: () {
+          // Navigate to media library using Navigator
+          Navigator.of(context).push(
+            CupertinoPageRoute(
+              builder: (_) => const MediaLibraryScreen(),
+            ),
+          );
+        },
+      ),
+      const MediaLibraryScreen(),
+      const DevicesScreen(),
+      const SettingsScreen(),
+    ];
+  }
 
   @override
   void initState() {
@@ -79,7 +98,7 @@ class _MainShellState extends State<MainShell> {
             tabBuilder: (context, index) {
               return CupertinoTabView(
                 builder: (context) {
-                  return _screens[index];
+                  return _buildScreens()[index];
                 },
               );
             },
