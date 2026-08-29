@@ -7,6 +7,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import '../widgets/states/error_state.dart';
+import 'queue_screen.dart';
 
 class CastPlayerScreen extends StatefulWidget {
   final MediaItem media;
@@ -31,80 +32,85 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      body: StreamBuilder<MediaPlayerState>(
-        stream: _controller.stream,
-        initialData: _controller.state,
-        builder: (context, snapshot) {
-          final state = snapshot.data!;
-
-          if (state.status == PlayerStatus.error) {
-            return _buildErrorState(state);
-          }
-
-          return Column(
-            children: [
-              _buildAppBar(state),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: AppSpacing.sm),
-                      _buildArtwork(state),
-                      const SizedBox(height: AppSpacing.lg),
-                      _buildMediaInfo(state),
-                      const SizedBox(height: AppSpacing.md),
-                      _buildConnectionBadge(state),
-                      const SizedBox(height: AppSpacing.xl),
-                      _buildSeekBar(state),
-                      const SizedBox(height: AppSpacing.lg),
-                      _buildPlaybackControls(state),
-                      const SizedBox(height: AppSpacing.lg),
-                      _buildVolumeControl(state),
-                      const SizedBox(height: AppSpacing.lg),
-                      _buildQueueButton(state),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildAppBar(MediaPlayerState state) {
-    return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top,
-        left: AppSpacing.md,
-        right: AppSpacing.md,
-      ),
-      child: Row(
-        children: [
-          GestureDetector(
+    return Material(
+      type: MaterialType.transparency,
+      child: CupertinoPageScaffold(
+        backgroundColor: AppColors.background,
+        navigationBar: CupertinoNavigationBar(
+          middle: const Text('Now Casting'),
+          leading: GestureDetector(
             onTap: () {
-              _controller.disconnect();
               Navigator.of(context).pop();
             },
-            child: const Padding(
-              padding: EdgeInsets.all(AppSpacing.sm),
-              child: Icon(CupertinoIcons.back, size: 22),
-            ),
+            child: const Icon(CupertinoIcons.back, size: 22),
           ),
-          const Expanded(
-            child: Text(
-              'Now Casting',
-              style: AppTypography.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (_) => const QueueScreen(),
+                    ),
+                  );
+                },
+                child: const Icon(CupertinoIcons.list_bullet, size: 22),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              GestureDetector(
+                onTap: () {
+                  _controller.disconnect();
+                  Navigator.of(context).pop();
+                },
+                child: const Icon(CupertinoIcons.xmark, size: 22),
+              ),
+            ],
           ),
-          const SizedBox(width: 40),
-        ],
+        ),
+        child: SafeArea(
+          child: StreamBuilder<MediaPlayerState>(
+            stream: _controller.stream,
+            initialData: _controller.state,
+            builder: (context, snapshot) {
+            final state = snapshot.data!;
+
+            if (state.status == PlayerStatus.error) {
+              return _buildErrorState(state);
+            }
+
+            return Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: AppSpacing.sm),
+                        _buildArtwork(state),
+                        const SizedBox(height: AppSpacing.lg),
+                        _buildMediaInfo(state),
+                        const SizedBox(height: AppSpacing.md),
+                        _buildConnectionBadge(state),
+                        const SizedBox(height: AppSpacing.xl),
+                        _buildSeekBar(state),
+                        const SizedBox(height: AppSpacing.lg),
+                        _buildPlaybackControls(state),
+                        const SizedBox(height: AppSpacing.lg),
+                        _buildVolumeControl(state),
+                        const SizedBox(height: AppSpacing.lg),
+                        _buildDisconnectButton(),
+                        const SizedBox(height: AppSpacing.md),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
       ),
-    );
+    ),
+  );
   }
 
   Widget _buildArtwork(MediaPlayerState state) {
@@ -322,11 +328,14 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
               overlayShape:
                   const RoundSliderOverlayShape(overlayRadius: 16),
             ),
-            child: Slider(
-              value: state.progress,
-              onChanged: (value) {
-                _controller.seekToFraction(value);
-              },
+            child: Material(
+              color: Colors.transparent,
+              child: Slider(
+                value: state.progress,
+                onChanged: (value) {
+                  _controller.seekToFraction(value);
+                },
+              ),
             ),
           ),
           Padding(
@@ -380,7 +389,24 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.lg),
+          const SizedBox(width: AppSpacing.md),
+          GestureDetector(
+            onTap: _controller.stopMedia,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                CupertinoIcons.stop_fill,
+                size: 22,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
           GestureDetector(
             onTap: _controller.playPause,
             child: Container(
@@ -406,7 +432,24 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.lg),
+          const SizedBox(width: AppSpacing.md),
+          GestureDetector(
+            onTap: _controller.stopMedia,
+            child: Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                CupertinoIcons.stop_fill,
+                size: 22,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
           GestureDetector(
             onTap: state.hasQueue ? _controller.skipNext : null,
             child: Container(
@@ -470,15 +513,18 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
                   overlayShape:
                       const RoundSliderOverlayShape(overlayRadius: 14),
                 ),
-                child: Slider(
-                  value: state.isMuted ? 0 : state.volume,
-                  onChanged: (value) {
-                    _controller.setVolume(value);
-                  },
+                child: Material(
+                  color: Colors.transparent,
+                  child: Slider(
+                    value: state.isMuted ? 0 : state.volume,
+                    onChanged: (value) {
+                      _controller.setVolume(value);
+                    },
+                  ),
                 ),
               ),
             ),
-            Icon(
+            const Icon(
               CupertinoIcons.volume_up,
               size: 22,
               color: AppColors.textSecondary,
@@ -489,55 +535,38 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
     );
   }
 
-  Widget _buildQueueButton(MediaPlayerState state) {
+  Widget _buildDisconnectButton() {
     return Padding(
       padding: AppSpacing.paddingHorizontalMd,
       child: GestureDetector(
-        onTap: () => _showQueueSheet(state),
+        onTap: () {
+          _controller.disconnect();
+          Navigator.of(context).pop();
+        },
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: AppColors.error.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(AppSpacing.borderRadiusMd),
-            border: Border.all(color: AppColors.divider, width: 1),
+            border: Border.all(color: AppColors.error.withValues(alpha: 0.3), width: 1),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                CupertinoIcons.list_bullet,
-                size: 20,
-                color: AppColors.textPrimary,
-              ),
-              const SizedBox(width: AppSpacing.sm),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    CupertinoIcons.xmark_circle,
+                    size: 20,
+                    color: AppColors.error,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
               Text(
-                'Queue',
+                'Disconnect',
                 style: AppTypography.bodyLarge.copyWith(
+                  color: AppColors.error,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              if (state.hasQueue) ...[
-                const SizedBox(width: AppSpacing.sm),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${state.queue.length}',
-                    style: const TextStyle(
-                      color: CupertinoColors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),
@@ -548,7 +577,6 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
   Widget _buildErrorState(MediaPlayerState state) {
     return Column(
       children: [
-        _buildAppBar(state),
         Expanded(
           child: ErrorState(
             message: state.errorMessage ?? 'Something went wrong',
@@ -558,124 +586,6 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  void _showQueueSheet(MediaPlayerState state) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.5,
-          ),
-          decoration: const BoxDecoration(
-            color: CupertinoColors.systemBackground,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(AppSpacing.borderRadiusMd),
-            ),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  margin: const EdgeInsets.only(top: AppSpacing.sm),
-                  width: 36,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: CupertinoColors.systemGrey3,
-                    borderRadius: BorderRadius.circular(2.5),
-                  ),
-                ),
-                Padding(
-                  padding: AppSpacing.paddingAllMd,
-                  child: Text('Queue', style: AppTypography.heading3),
-                ),
-                Flexible(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: state.queue.length,
-                    itemBuilder: (context, index) {
-                      final item = state.queue[index];
-                      final isCurrent = index == state.currentQueueIndex;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.sm,
-                        ),
-                        color: isCurrent
-                            ? AppColors.primary.withValues(alpha: 0.08)
-                            : null,
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                AppSpacing.borderRadiusSm,
-                              ),
-                              child: Container(
-                                width: 44,
-                                height: 44,
-                                color: CupertinoColors.systemGroupedBackground,
-                                child: Image.network(
-                                  item.thumbnailUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Icon(
-                                      _typeIcon(item.type),
-                                      color: CupertinoColors.systemGrey,
-                                      size: 20,
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.md),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title,
-                                    style: AppTypography.bodyMedium.copyWith(
-                                      fontWeight: isCurrent
-                                          ? FontWeight.w600
-                                          : FontWeight.w400,
-                                      color: isCurrent
-                                          ? AppColors.primary
-                                          : AppColors.textPrimary,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  if (item.artist != null)
-                                    Text(
-                                      item.artist!,
-                                      style: AppTypography.bodySmall,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                ],
-                              ),
-                            ),
-                            if (isCurrent)
-                              const Icon(
-                                CupertinoIcons.speaker_2_fill,
-                                color: AppColors.primary,
-                                size: 18,
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 

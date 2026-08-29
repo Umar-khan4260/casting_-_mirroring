@@ -7,6 +7,8 @@ class MediaItem {
   final String title;
   final String subtitle;
   final String thumbnailUrl;
+  final String? mediaUrl;
+  final String contentType;
   final Duration duration;
   final MediaType type;
   final DateTime dateAdded;
@@ -19,6 +21,8 @@ class MediaItem {
     required this.title,
     required this.subtitle,
     required this.thumbnailUrl,
+    this.mediaUrl,
+    this.contentType = 'video/mp4',
     this.duration = Duration.zero,
     required this.type,
     required this.dateAdded,
@@ -32,6 +36,8 @@ class MediaItem {
     String? title,
     String? subtitle,
     String? thumbnailUrl,
+    String? mediaUrl,
+    String? contentType,
     Duration? duration,
     MediaType? type,
     DateTime? dateAdded,
@@ -44,6 +50,8 @@ class MediaItem {
       title: title ?? this.title,
       subtitle: subtitle ?? this.subtitle,
       thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      mediaUrl: mediaUrl ?? this.mediaUrl,
+      contentType: contentType ?? this.contentType,
       duration: duration ?? this.duration,
       type: type ?? this.type,
       dateAdded: dateAdded ?? this.dateAdded,

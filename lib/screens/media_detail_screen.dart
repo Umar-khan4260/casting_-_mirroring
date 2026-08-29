@@ -219,6 +219,9 @@ class MediaDetailScreen extends StatelessWidget {
   }
 
   Widget _buildActionSection(BuildContext context) {
+    final controller = AppCastingController();
+    final isCasting = controller.isCasting;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -238,6 +241,27 @@ class MediaDetailScreen extends StatelessWidget {
             },
           ),
         const SizedBox(height: AppSpacing.sm),
+        if (media.type == MediaType.video || media.type == MediaType.music)
+          _buildActionButton(
+            context: context,
+            icon: CupertinoIcons.plus_square,
+            label: isCasting ? 'Add to Queue' : 'Cast Queue',
+            isPrimary: false,
+            onTap: () {
+              if (isCasting) {
+                AppCastingController().addToQueue(media);
+                _showAddedToQueueSnackBar(context);
+              } else {
+                AppCastingController().castQueue([media]);
+                Navigator.of(context).push(
+                  CupertinoPageRoute(
+                    builder: (_) => CastPlayerScreen(media: media),
+                  ),
+                );
+              }
+            },
+          ),
+        const SizedBox(height: AppSpacing.sm),
         _buildActionButton(
           context: context,
           icon: CupertinoIcons.share,
@@ -246,6 +270,21 @@ class MediaDetailScreen extends StatelessWidget {
           onTap: () {},
         ),
       ],
+    );
+  }
+
+  void _showAddedToQueueSnackBar(BuildContext context) {
+    showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        content: Text('${media.title} added to queue'),
+        actions: [
+          CupertinoDialogAction(
+            child: const Text('OK'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
     );
   }
 

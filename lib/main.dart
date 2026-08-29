@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_chrome_cast/flutter_chrome_cast.dart';
@@ -9,22 +10,28 @@ import 'providers/device_discovery_provider.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const appId = GoogleCastDiscoveryCriteria.kDefaultApplicationId;
-  GoogleCastOptions? options;
-  if (Platform.isIOS) {
-    options = IOSGoogleCastOptions(
-      GoogleCastDiscoveryCriteriaInitialize.initWithApplicationID(appId),
-      stopCastingOnAppTerminated: true,
-    );
-  } else if (Platform.isAndroid) {
-    options = GoogleCastOptionsAndroid(
-      appId: appId,
-      stopCastingOnAppTerminated: true,
-    );
-  }
-  
-  if (options != null) {
-    GoogleCastContext.instance.setSharedInstanceWithOptions(options);
+  if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
+    try {
+      const appId = GoogleCastDiscoveryCriteria.kDefaultApplicationId;
+      GoogleCastOptions? options;
+      if (Platform.isIOS) {
+        options = IOSGoogleCastOptions(
+          GoogleCastDiscoveryCriteriaInitialize.initWithApplicationID(appId),
+          stopCastingOnAppTerminated: true,
+        );
+      } else if (Platform.isAndroid) {
+        options = GoogleCastOptionsAndroid(
+          appId: appId,
+          stopCastingOnAppTerminated: true,
+        );
+      }
+
+      if (options != null) {
+        GoogleCastContext.instance.setSharedInstanceWithOptions(options);
+      }
+    } catch (e) {
+      debugPrint('Google Cast init skipped: $e');
+    }
   }
 
   runApp(const CastingApp());
