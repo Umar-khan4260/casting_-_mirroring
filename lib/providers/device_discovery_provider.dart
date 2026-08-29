@@ -47,12 +47,11 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
   List<CastDevice> get devices => _devices;
   String? get errorMessage => _errorMessage;
 
-  List<CastDevice> get connectedDevices => _devices
-      .where((d) => d.connectionState == DeviceConnectionState.connected)
-      .toList();
+  List<CastDevice> get connectedDevices =>
+      _devices.where((d) => d.isAnyConnected).toList();
 
   List<CastDevice> get availableDevices => _devices
-      .where((d) => d.connectionState == DeviceConnectionState.disconnected)
+      .where((d) => !d.isAnyConnected && d.connectionState == DeviceConnectionState.disconnected)
       .toList();
 
   List<CastDevice> get unavailableDevices => _devices
@@ -108,7 +107,7 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
       await _service.connectToDevice(device);
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to connect to \.';
+        _errorMessage = 'Failed to connect to ${device.name}.';
       });
     }
   }
@@ -118,7 +117,7 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
       await _service.disconnectDevice(device);
     } catch (e) {
       setState(() {
-        _errorMessage = 'Failed to disconnect from \.';
+        _errorMessage = 'Failed to disconnect from ${device.name}.';
       });
     }
   }

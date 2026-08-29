@@ -78,10 +78,10 @@ class _DeviceActionSheetState extends State<DeviceActionSheet>
   @override
   Widget build(BuildContext context) {
     final device = widget.device;
-    final isConnected =
-        device.connectionState == DeviceConnectionState.connected;
-    final showCast = device.supportsMediaCasting;
-    final showMirror = device.supportsScreenMirroring;
+    final isConnected = device.isAnyConnected;
+    final showCast = device.supportsMediaCasting && widget.onCastMedia != null;
+    final showMirror =
+        device.supportsScreenMirroring && widget.onMirrorScreen != null;
 
     return FadeTransition(
       opacity: _fadeAnimation,

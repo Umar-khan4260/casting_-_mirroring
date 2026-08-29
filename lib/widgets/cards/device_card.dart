@@ -9,7 +9,7 @@ class DeviceCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const DeviceCard({Key? key, required this.device, this.onTap})
-    : super(key: key);
+      : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -60,12 +60,49 @@ class DeviceCard extends StatelessWidget {
                       : AppColors.textPrimary,
                 ),
               ),
+              if (_buildStatusText() != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  _buildStatusText()!,
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         _buildStatusBadge(),
       ],
     );
+  }
+
+  String? _buildStatusText() {
+    final parts = <String>[];
+    if (device.supportsMediaCasting) {
+      switch (device.connectionState) {
+        case DeviceConnectionState.connected:
+          parts.add('Media casting');
+        case DeviceConnectionState.connecting:
+          parts.add('Connecting...');
+        case DeviceConnectionState.disconnecting:
+          parts.add('Disconnecting...');
+        default:
+          break;
+      }
+    }
+    if (device.supportsScreenMirroring) {
+      switch (device.mirroringConnectionState) {
+        case DeviceConnectionState.connected:
+          parts.add('Screen mirroring');
+        case DeviceConnectionState.connecting:
+          parts.add('Connecting mirroring...');
+        default:
+          break;
+      }
+    }
+    if (parts.isEmpty) return null;
+    return parts.join(' \u2022 ');
   }
 
   Widget _buildIcon() {
@@ -77,7 +114,8 @@ class DeviceCard extends StatelessWidget {
         color: color.withAlpha(26),
         borderRadius: BorderRadius.circular(AppSpacing.borderRadiusSm),
       ),
-      child: device.connectionState == DeviceConnectionState.connecting
+      child: device.connectionState == DeviceConnectionState.connecting ||
+              device.mirroringConnectionState == DeviceConnectionState.connecting
           ? SizedBox(
               height: 24,
               width: 24,
@@ -91,10 +129,11 @@ class DeviceCard extends StatelessWidget {
   }
 
   Widget _buildStatusBadge() {
-    if (device.connectionState == DeviceConnectionState.connected) {
+    if (device.isAnyConnected) {
       return const Icon(Icons.check_circle, color: AppColors.primary, size: 20);
     }
-    if (device.connectionState == DeviceConnectionState.connecting) {
+    if (device.connectionState == DeviceConnectionState.connecting ||
+        device.mirroringConnectionState == DeviceConnectionState.connecting) {
       return const SizedBox(
         height: 16,
         width: 16,
@@ -112,57 +151,69 @@ class DeviceCard extends StatelessWidget {
       padding: const EdgeInsets.only(left: 48),
       child: Column(
         children: [
-          _buildCapabilityRow(
-            label: 'Media Casting',
-            supported: device.supportsMediaCasting,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          _buildCapabilityRow(
-            label: 'Screen Mirroring',
-            supported: device.supportsScreenMirroring,
-          ),
+          if (device.supportsMediaCasting)
+            _buildCapabilityRow(
+              label: 'Media Casting',
+              supported: true,
+              connected: device.connectionState == DeviceConnectionState.connected,
+            ),
+          if (device.supportsMediaCasting && device.supportsScreenMirroring)
+            const SizedBox(height: AppSpacing.xs),
+          if (device.supportsScreenMirroring)
+            _buildCapabilityRow(
+              label: 'Screen Mirroring',
+              supported: true,
+              connected: device.mirroringConnectionState ==
+                  DeviceConnectionState.connected,
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildCapabilityRow({required String label, required bool supported}) {
+  Widget _buildCapabilityRow({
+    required String label,
+    required bool supported,
+    required bool connected,
+  }) {
     return Row(
       children: [
         Icon(
-          supported ? Icons.check_circle : Icons.remove_circle_outline,
+          connected ? Icons.check_circle : Icons.circle_outlined,
           size: 16,
-          color: supported ? AppColors.success : AppColors.textSecondary,
+          color: connected ? AppColors.primary : AppColors.textSecondary,
         ),
         const SizedBox(width: AppSpacing.sm),
         Text(
           label,
           style: AppTypography.bodyMedium.copyWith(
-            color: supported ? AppColors.textPrimary : AppColors.textSecondary,
+            color: connected ? AppColors.textPrimary : AppColors.textSecondary,
           ),
         ),
         const Spacer(),
-        Text(
-          supported ? '\u2713' : '\u2014',
-          style: AppTypography.bodyMedium.copyWith(
-            color: supported ? AppColors.success : AppColors.textSecondary,
-            fontWeight: FontWeight.w600,
+        if (connected)
+          Text(
+            'Connected',
+            style: AppTypography.bodySmall.copyWith(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
       ],
     );
   }
 
   Color _iconColor() {
+    if (device.isAnyConnected) return AppColors.primary;
     switch (device.connectionState) {
-      case DeviceConnectionState.connected:
-        return AppColors.primary;
       case DeviceConnectionState.disconnected:
         return AppColors.success;
       case DeviceConnectionState.connecting:
       case DeviceConnectionState.disconnecting:
         return const Color(0xFFFF9500);
       case DeviceConnectionState.error:
+        return AppColors.textSecondary;
+      default:
         return AppColors.textSecondary;
     }
   }
@@ -172,7 +223,7 @@ class DeviceCard extends StatelessWidget {
       case DeviceType.googleCast:
         return Icons.cast;
       case DeviceType.appleAirPlay:
-        return Icons.apple;
+        return Icons.airplay;
       default:
         return Icons.devices;
     }
