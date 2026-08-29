@@ -375,7 +375,7 @@ class AppCastingController extends ChangeNotifier {
 
   Future<void> startScreenMirroring(CastDevice device) async {
     try {
-      await _castingManager.startScreenMirroring(device);
+      await _castingManager.routeMediaToAirPlay(device);
       _isMirroring = true;
       _mirroringDevice = device;
       notifyListeners();
@@ -389,7 +389,7 @@ class AppCastingController extends ChangeNotifier {
 
   Future<void> stopScreenMirroring() async {
     try {
-      await _castingManager.stopScreenMirroring();
+      await _castingManager.stopAirPlayRouting();
     } catch (_) {}
     _isMirroring = false;
     _mirroringDevice = null;

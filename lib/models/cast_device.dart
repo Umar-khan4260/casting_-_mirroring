@@ -13,6 +13,7 @@ class CastDevice {
   final String name;
   final DeviceType type;
   final DeviceConnectionState connectionState;
+  final DeviceConnectionState mirroringConnectionState;
   final bool supportsMediaCasting;
   final bool supportsScreenMirroring;
 
@@ -21,6 +22,7 @@ class CastDevice {
     required this.name,
     required this.type,
     this.connectionState = DeviceConnectionState.disconnected,
+    this.mirroringConnectionState = DeviceConnectionState.disconnected,
     this.supportsMediaCasting = false,
     this.supportsScreenMirroring = false,
   });
@@ -30,6 +32,7 @@ class CastDevice {
     String? name,
     DeviceType? type,
     DeviceConnectionState? connectionState,
+    DeviceConnectionState? mirroringConnectionState,
     bool? supportsMediaCasting,
     bool? supportsScreenMirroring,
   }) {
@@ -38,9 +41,15 @@ class CastDevice {
       name: name ?? this.name,
       type: type ?? this.type,
       connectionState: connectionState ?? this.connectionState,
+      mirroringConnectionState:
+          mirroringConnectionState ?? this.mirroringConnectionState,
       supportsMediaCasting: supportsMediaCasting ?? this.supportsMediaCasting,
       supportsScreenMirroring:
           supportsScreenMirroring ?? this.supportsScreenMirroring,
     );
   }
+
+  bool get isAnyConnected =>
+      connectionState == DeviceConnectionState.connected ||
+      mirroringConnectionState == DeviceConnectionState.connected;
 }

@@ -7,6 +7,7 @@ import '../theme/app_typography.dart';
 import '../widgets/cards/action_card.dart';
 import '../widgets/cards/connected_device_card.dart';
 import 'cast_player_screen.dart';
+import 'screen_mirror_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final VoidCallback? onSwitchToDevices;
@@ -64,14 +65,16 @@ class HomeScreen extends StatelessWidget {
                 ),
                 ActionCard(
                   title: 'Mirror Screen',
-                  subtitle: isConnected
-                      ? 'Mirror your iPhone screen'
-                      : 'Connect to a device first',
+                  subtitle: 'AirPlay media routing & screen mirroring guide',
                   icon: CupertinoIcons.device_phone_portrait,
                   iconColor: CupertinoColors.systemPurple,
-                  onTap: isConnected
-                      ? () => _startScreenMirroring(context)
-                      : (onSwitchToDevices ?? () {}),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      CupertinoPageRoute(
+                        builder: (_) => const ScreenMirrorScreen(),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 if (playerState.hasQueue) ...[
@@ -121,14 +124,6 @@ class HomeScreen extends StatelessWidget {
         builder: (_) => CastPlayerScreen(media: state.media!),
       ),
     );
-  }
-
-  void _startScreenMirroring(BuildContext context) {
-    final controller = AppCastingController();
-    final connectedDevice = controller.state.connectedDevice;
-    if (connectedDevice != null) {
-      controller.startScreenMirroring(connectedDevice);
-    }
   }
 }
 

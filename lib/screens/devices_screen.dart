@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/cast_device.dart';
 import '../providers/device_discovery_provider.dart';
+import '../providers/app_casting_controller.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_colors.dart';
 import '../widgets/cards/device_card.dart';
@@ -9,6 +10,7 @@ import '../widgets/states/error_state.dart';
 import '../widgets/states/empty_state.dart';
 import '../widgets/layout/section_header.dart';
 import '../widgets/sheets/device_action_sheet.dart';
+import 'screen_mirror_screen.dart';
 
 class DevicesScreen extends StatefulWidget {
   const DevicesScreen({Key? key}) : super(key: key);
@@ -87,19 +89,49 @@ class _DevicesScreenState extends State<DevicesScreen> {
     return DeviceCard(
       device: device,
       onTap: () {
-        if (device.connectionState == DeviceConnectionState.connected) {
+        if (device.isAnyConnected) {
           DeviceActionSheet.show(
             context,
             device: device,
-            onCastMedia: () {},
-            onMirrorScreen: () {},
+            onCastMedia: device.supportsMediaCasting
+                ? () => _onCastMedia(context, device)
+                : null,
+            onMirrorScreen: device.supportsScreenMirroring
+                ? () => _onMirrorScreen(context, device)
+                : null,
             onDisconnect: () => provider.disconnect(device),
           );
         } else if (device.connectionState ==
             DeviceConnectionState.disconnected) {
-          provider.connectTo(device);
+          if (device.type == DeviceType.appleAirPlay) {
+            _onMirrorScreen(context, device);
+          } else {
+            provider.connectTo(device);
+          }
         }
       },
+    );
+  }
+
+  void _onCastMedia(BuildContext context, CastDevice device) {
+    final controller = AppCastingController();
+    final media = controller.state.media;
+    if (media != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Already casting. Use the player to control playback.')),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select media from the Media tab to start casting.')),
+      );
+    }
+  }
+
+  void _onMirrorScreen(BuildContext context, CastDevice device) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const ScreenMirrorScreen(),
+      ),
     );
   }
 }

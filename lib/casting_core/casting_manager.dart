@@ -20,6 +20,11 @@ class CastingManager {
       _mediaCasting.playerPositionStream;
   Stream<CastQueueState> get queueStream => _mediaCasting.queueStream;
 
+  MirroringState get mirroringState => _screenMirroring.mirroringState;
+  String? get connectedMirroringRoute =>
+      _screenMirroring.connectedRouteName;
+  bool get isAirPlayAvailable => _screenMirroring.isAirPlayAvailable;
+
   Future<void> startMediaDiscovery() => _mediaCasting.startDiscovery();
   Future<void> stopMediaDiscovery() => _mediaCasting.stopDiscovery();
   Future<void> connectMediaDevice(CastDevice device) =>
@@ -47,9 +52,11 @@ class CastingManager {
   Future<void> queueNext() => _mediaCasting.queueNext();
   Future<void> queuePrevious() => _mediaCasting.queuePrevious();
 
-  Future<void> startMirroringDiscovery() => _screenMirroring.startDiscovery();
-  Future<void> stopMirroringDiscovery() => _screenMirroring.stopDiscovery();
-  Future<void> startScreenMirroring(CastDevice device) =>
-      _screenMirroring.startMirroring(device);
-  Future<void> stopScreenMirroring() => _screenMirroring.stopMirroring();
+  // Screen Mirroring (AirPlay)
+  Future<void> startMirroringMonitoring() => _screenMirroring.startMonitoring();
+  Future<void> stopMirroringMonitoring() => _screenMirroring.stopMonitoring();
+  Future<void> showAirPlayRoutePicker() => _screenMirroring.showRoutePicker();
+  Future<void> routeMediaToAirPlay(CastDevice device) =>
+      _screenMirroring.routeMediaTo(device);
+  Future<void> stopAirPlayRouting() => _screenMirroring.stopRouting();
 }
