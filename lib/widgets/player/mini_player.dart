@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../models/media_item.dart';
 import '../../models/media_player_state.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -27,7 +28,7 @@ class MiniPlayer extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 64,
+        height: 72,
         decoration: BoxDecoration(
           color: AppColors.surface,
           boxShadow: [
@@ -38,76 +39,88 @@ class MiniPlayer extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 64,
-              height: 64,
-              color: AppColors.background,
-              child: Image.network(
-                media.thumbnailUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(
-                    CupertinoIcons.music_note,
-                    color: AppColors.textSecondary,
-                  );
-                },
+            if (playerState.duration.inSeconds > 0)
+              LinearProgressIndicator(
+                value: playerState.progress,
+                backgroundColor: AppColors.divider.withValues(alpha: 0.3),
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                minHeight: 2,
               ),
-            ),
-            const SizedBox(width: AppSpacing.md),
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    media.title,
-                    style: AppTypography.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
+                  Container(
+                    width: 56,
+                    height: 56,
+                    color: AppColors.background,
+                    child: Image.network(
+                      media.thumbnailUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Icon(
+                          media.type == MediaType.music
+                              ? CupertinoIcons.music_note
+                              : CupertinoIcons.play_rectangle,
+                          color: AppColors.textSecondary,
+                        );
+                      },
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    'Casting to ${playerState.connectedDevice?.name ?? "Device"}',
-                    style: AppTypography.bodySmall,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          media.title,
+                          style: AppTypography.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Casting to ${playerState.connectedDevice?.name ?? "Device"}',
+                          style: AppTypography.bodySmall,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
+                  GestureDetector(
+                    onTap: onPlayPause,
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      child: Icon(
+                        playerState.isPlaying
+                            ? CupertinoIcons.pause_fill
+                            : CupertinoIcons.play_fill,
+                        color: AppColors.primary,
+                        size: 26,
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: onClose,
+                    child: const Padding(
+                      padding: EdgeInsets.all(AppSpacing.sm),
+                      child: Icon(
+                        CupertinoIcons.xmark,
+                        color: AppColors.textSecondary,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
                 ],
               ),
             ),
-            GestureDetector(
-              onTap: onPlayPause,
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  playerState.isPlaying
-                      ? CupertinoIcons.pause_fill
-                      : CupertinoIcons.play_fill,
-                  color: AppColors.primary,
-                  size: 28,
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            GestureDetector(
-              onTap: onClose,
-              child: const Padding(
-                padding: EdgeInsets.all(AppSpacing.sm),
-                child: Icon(
-                  CupertinoIcons.xmark,
-                  color: AppColors.textSecondary,
-                  size: 18,
-                ),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
           ],
         ),
       ),
