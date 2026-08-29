@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../models/cast_device.dart';
 import '../services/device_discovery_service.dart';
 import '../services/real_device_discovery_service.dart';
+import '../utils/cast_logger.dart';
+
+const _log = CastLogger('DiscoveryProvider');
 
 enum DiscoveryState { idle, loading, loaded, error }
 
@@ -51,7 +54,9 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
       _devices.where((d) => d.isAnyConnected).toList();
 
   List<CastDevice> get availableDevices => _devices
-      .where((d) => !d.isAnyConnected && d.connectionState == DeviceConnectionState.disconnected)
+      .where((d) =>
+          !d.isAnyConnected &&
+          d.connectionState == DeviceConnectionState.disconnected)
       .toList();
 
   List<CastDevice> get unavailableDevices => _devices
@@ -63,12 +68,27 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
     super.initState();
     DeviceDiscoveryProvider._staticState = this;
     _service = widget.service ?? RealDeviceDiscoveryService();
-    _subscription = _service.deviceStream.listen((devices) {
-      setState(() {
-        _devices = devices;
-        _state = DiscoveryState.loaded;
-      });
-    });
+    _subscription = _service.deviceStream.listen(
+      (devices) {
+        _log.debug('Received ${devices.length} device(s) from stream');
+        if (mounted) {
+          setState(() {
+            _devices = devices;
+            _state = DiscoveryState.loaded;
+            _errorMessage = null;
+          });
+        }
+      },
+      onError: (e) {
+        _log.error('Device stream error', e);
+        if (mounted) {
+          setState(() {
+            _state = DiscoveryState.error;
+            _errorMessage = 'Device discovery lost connection. Please try again.';
+          });
+        }
+      },
+    );
     discoverDevices();
   }
 
@@ -76,6 +96,7 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
   void dispose() {
     DeviceDiscoveryProvider._staticState = null;
     _subscription?.cancel();
+    _subscription = null;
     final service = _service;
     if (service is RealDeviceDiscoveryService) {
       service.dispose();
@@ -95,9 +116,16 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
         _state = DiscoveryState.loaded;
       });
     } catch (e) {
+      _log.error('discoverDevices failed', e);
       setState(() {
         _state = DiscoveryState.error;
-        _errorMessage = 'Failed to discover devices. Please try again.';
+        if (e.toString().contains('network') ||
+            e.toString().contains('permission')) {
+          _errorMessage =
+              'Local network access is required. Please enable it in Settings.';
+        } else {
+          _errorMessage = 'No devices found. Make sure your device is on the same Wi-Fi network.';
+        }
       });
     }
   }
@@ -106,8 +134,17 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
     try {
       await _service.connectToDevice(device);
     } catch (e) {
+      _log.error('connectTo failed', e);
       setState(() {
-        _errorMessage = 'Failed to connect to ${device.name}.';
+        if (e.toString().contains('timed out')) {
+          _errorMessage =
+              '${device.name} is not responding. It may be unavailable or too far away.';
+        } else if (e.toString().contains('not found')) {
+          _errorMessage =
+              '${device.name} is no longer available on the network.';
+        } else {
+          _errorMessage = 'Could not connect to ${device.name}. Please try again.';
+        }
       });
     }
   }
@@ -116,8 +153,9 @@ class DeviceDiscoveryProviderState extends State<DeviceDiscoveryProvider> {
     try {
       await _service.disconnectDevice(device);
     } catch (e) {
+      _log.error('disconnect failed', e);
       setState(() {
-        _errorMessage = 'Failed to disconnect from ${device.name}.';
+        _errorMessage = 'Could not disconnect from ${device.name}. Please try again.';
       });
     }
   }

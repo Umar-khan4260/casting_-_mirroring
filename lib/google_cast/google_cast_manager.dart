@@ -5,6 +5,10 @@ import '../models/cast_device.dart';
 import '../models/cast_queue_state.dart';
 import '../models/media_item.dart';
 import '../casting_core/interfaces/media_casting_interface.dart';
+import '../utils/cast_logger.dart';
+
+const _timeout = Duration(seconds: 15);
+const _log = CastLogger('GoogleCast');
 
 class GoogleCastManager implements MediaCastingInterface {
   static final GoogleCastManager _instance = GoogleCastManager._();
@@ -44,8 +48,9 @@ class GoogleCastManager implements MediaCastingInterface {
 
     try {
       _initListeners();
-    } catch (e) {
-      debugPrint('GoogleCastManager: failed to initialize: $e');
+      _log.info('Initialized');
+    } catch (e, st) {
+      _log.error('Failed to initialize', e, st);
     }
   }
 
@@ -65,24 +70,33 @@ class GoogleCastManager implements MediaCastingInterface {
                   ))
               .toList();
           _devicesController.add(_latestDevices);
+          _log.debug('Discovered ${_latestDevices.length} device(s)');
         },
         onError: (e) {
-          debugPrint('GoogleCastManager: discovery stream error: $e');
+          _log.error('Discovery stream error', e);
         },
       );
     } catch (e) {
-      debugPrint('GoogleCastManager: failed to init discovery listener: $e');
+      _log.error('Failed to init discovery listener', e);
     }
 
     try {
       _sessionSubscription =
           GoogleCastSessionManager.instance.currentSessionStream.listen(
         (_) {
-          final updated = _latestDevices.map((device) {
-            return device.copyWith(connectionState: _getConnectionState());
-          }).toList();
+          final newState = _getConnectionState();
+          final updated = _latestDevices
+              .map((device) => device.copyWith(connectionState: newState))
+              .toList();
           _latestDevices = updated;
           _devicesController.add(updated);
+
+          if (newState == DeviceConnectionState.disconnected &&
+              _latestStatus.isPlaying) {
+            _latestStatus = const CastMediaStatus(isError: true);
+            _mediaStatusController.add(_latestStatus);
+            _log.warning('Receiver disconnected during playback');
+          }
 
           final session =
               GoogleCastSessionManager.instance.currentSession;
@@ -95,11 +109,11 @@ class GoogleCastManager implements MediaCastingInterface {
           }
         },
         onError: (e) {
-          debugPrint('GoogleCastManager: session stream error: $e');
+          _log.error('Session stream error', e);
         },
       );
     } catch (e) {
-      debugPrint('GoogleCastManager: failed to init session listener: $e');
+      _log.error('Failed to init session listener', e);
     }
 
     try {
@@ -125,6 +139,10 @@ class GoogleCastManager implements MediaCastingInterface {
           final isMediaEnded = isIdle &&
               idleReason == GoogleCastMediaIdleReason.finished;
 
+          if (isError) {
+            _log.warning('Receiver reported media error (idleReason: $idleReason)');
+          }
+
           _latestStatus = CastMediaStatus(
             isPlaying: playerState == CastMediaPlayerState.playing,
             isPaused: playerState == CastMediaPlayerState.paused,
@@ -140,12 +158,11 @@ class GoogleCastManager implements MediaCastingInterface {
           _mediaStatusController.add(_latestStatus);
         },
         onError: (e) {
-          debugPrint('GoogleCastManager: media status stream error: $e');
+          _log.error('Media status stream error', e);
         },
       );
     } catch (e) {
-      debugPrint(
-          'GoogleCastManager: failed to init media status listener: $e');
+      _log.error('Failed to init media status listener', e);
     }
 
     try {
@@ -159,12 +176,11 @@ class GoogleCastManager implements MediaCastingInterface {
           _mediaStatusController.add(_latestStatus);
         },
         onError: (e) {
-          debugPrint('GoogleCastManager: player position stream error: $e');
+          _log.error('Player position stream error', e);
         },
       );
     } catch (e) {
-      debugPrint(
-          'GoogleCastManager: failed to init player position listener: $e');
+      _log.error('Failed to init player position listener', e);
     }
 
     try {
@@ -174,11 +190,11 @@ class GoogleCastManager implements MediaCastingInterface {
           _onQueueItemsUpdated(queueItems);
         },
         onError: (e) {
-          debugPrint('GoogleCastManager: queue stream error: $e');
+          _log.error('Queue stream error', e);
         },
       );
     } catch (e) {
-      debugPrint('GoogleCastManager: failed to init queue listener: $e');
+      _log.error('Failed to init queue listener', e);
     }
   }
 
@@ -196,6 +212,9 @@ class GoogleCastManager implements MediaCastingInterface {
     }
   }
 
+  bool get isConnected =>
+      _getConnectionState() == DeviceConnectionState.connected;
+
   String _contentTypeForMediaType(MediaType type) {
     switch (type) {
       case MediaType.video:
@@ -204,6 +223,22 @@ class GoogleCastManager implements MediaCastingInterface {
         return 'audio/mpeg';
       case MediaType.photo:
         return 'image/jpeg';
+    }
+  }
+
+  void _validateMediaUrl(MediaItem media) {
+    final url = media.mediaUrl ?? media.thumbnailUrl;
+    if (url.isEmpty) {
+      throw CastMediaException('Media has no URL. Cannot cast.');
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme) {
+      throw CastMediaException('Invalid media URL: $url');
+    }
+    if (uri.scheme != 'http' && uri.scheme != 'https') {
+      throw CastMediaException(
+        'Unsupported URL scheme "${uri.scheme}". Only http/https URLs can be cast.',
+      );
     }
   }
 
@@ -226,8 +261,13 @@ class GoogleCastManager implements MediaCastingInterface {
     if (kIsWeb) return;
     try {
       await GoogleCastDiscoveryManager.instance.startDiscovery();
+      _log.info('Discovery started');
     } catch (e) {
-      debugPrint('GoogleCastManager: startDiscovery failed: $e');
+      _log.error('startDiscovery failed', e);
+      throw CastDiscoveryException(
+        'Could not start device discovery. '
+        'Check that local network access is enabled in Settings.',
+      );
     }
   }
 
@@ -236,36 +276,68 @@ class GoogleCastManager implements MediaCastingInterface {
     if (kIsWeb) return;
     try {
       await GoogleCastDiscoveryManager.instance.stopDiscovery();
+      _log.info('Discovery stopped');
     } catch (e) {
-      debugPrint('GoogleCastManager: stopDiscovery failed: $e');
+      _log.error('stopDiscovery failed', e);
     }
   }
 
   @override
   Future<void> connect(CastDevice device) async {
     if (kIsWeb) return;
+    _log.info('Connecting to ${device.name} (${device.id})...');
     try {
       final target = GoogleCastDiscoveryManager.instance.devices
           .firstWhere((d) => d.deviceID == device.id);
-      await GoogleCastSessionManager.instance.startSessionWithDevice(target);
+      await GoogleCastSessionManager.instance
+          .startSessionWithDevice(target)
+          .timeout(_timeout, onTimeout: () {
+        throw CastConnectionException(
+          'Connection to ${device.name} timed out. '
+          'The device may be unavailable or too far away.',
+        );
+      });
+      _log.info('Connected to ${device.name}');
+    } on CastConnectionException {
+      rethrow;
+    } on StateError {
+      throw CastConnectionException(
+        'Device "${device.name}" not found on the network. '
+        'It may have gone offline.',
+      );
     } catch (e) {
-      debugPrint('GoogleCastManager: connect failed: $e');
+      _log.error('connect failed', e);
+      throw CastConnectionException(
+        'Failed to connect to ${device.name}. '
+        'Make sure the device is on and connected to the same network.',
+      );
     }
   }
 
   @override
   Future<void> disconnect() async {
     if (kIsWeb) return;
+    _log.info('Disconnecting...');
     try {
       await GoogleCastSessionManager.instance.endSessionAndStopCasting();
+      _log.info('Disconnected');
     } catch (e) {
-      debugPrint('GoogleCastManager: disconnect failed: $e');
+      _log.error('disconnect failed', e);
+      throw CastConnectionException('Failed to disconnect from receiver.');
     }
   }
 
   @override
   Future<void> loadMedia(MediaItem media) async {
     if (kIsWeb) return;
+    _validateMediaUrl(media);
+
+    if (!isConnected) {
+      throw CastConnectionException(
+        'Not connected to a receiver. Connect to a device first.',
+      );
+    }
+
     final url = media.mediaUrl ?? media.thumbnailUrl;
     final contentType = media.mediaUrl != null
         ? media.contentType
@@ -301,62 +373,96 @@ class GoogleCastManager implements MediaCastingInterface {
       duration: media.duration.inSeconds > 0 ? media.duration : null,
     );
 
-    await GoogleCastRemoteMediaClient.instance.loadMedia(
-      mediaInfo,
-      autoPlay: true,
-    );
+    try {
+      await GoogleCastRemoteMediaClient.instance
+          .loadMedia(
+            mediaInfo,
+            autoPlay: true,
+          )
+          .timeout(_timeout, onTimeout: () {
+        throw CastMediaException(
+          'Loading media timed out. The receiver may be slow or the URL unreachable.',
+        );
+      });
+      _log.info('Loaded media: ${media.title}');
+    } on CastMediaException {
+      rethrow;
+    } catch (e) {
+      _log.error('loadMedia failed', e);
+      throw CastMediaException(
+        'Failed to load "${media.title}" on the receiver. '
+        'The media URL may be unavailable or the format unsupported.',
+      );
+    }
   }
 
   @override
   Future<void> play() async {
     if (kIsWeb) return;
+    if (!isConnected) {
+      throw CastConnectionException('Not connected to a receiver.');
+    }
     try {
       await GoogleCastRemoteMediaClient.instance.play();
     } catch (e) {
-      debugPrint('GoogleCastManager: play failed: $e');
+      _log.error('play failed', e);
+      throw CastMediaException('Failed to resume playback.');
     }
   }
 
   @override
   Future<void> pause() async {
     if (kIsWeb) return;
+    if (!isConnected) {
+      throw CastConnectionException('Not connected to a receiver.');
+    }
     try {
       await GoogleCastRemoteMediaClient.instance.pause();
     } catch (e) {
-      debugPrint('GoogleCastManager: pause failed: $e');
+      _log.error('pause failed', e);
+      throw CastMediaException('Failed to pause playback.');
     }
   }
 
   @override
   Future<void> stop() async {
     if (kIsWeb) return;
+    if (!isConnected) return;
     try {
       await GoogleCastRemoteMediaClient.instance.stop();
     } catch (e) {
-      debugPrint('GoogleCastManager: stop failed: $e');
+      _log.error('stop failed', e);
     }
   }
 
   @override
   Future<void> seek(Duration position) async {
     if (kIsWeb) return;
+    if (!isConnected) {
+      throw CastConnectionException('Not connected to a receiver.');
+    }
     try {
       await GoogleCastRemoteMediaClient.instance.seek(
         GoogleCastMediaSeekOption(position: position),
       );
     } catch (e) {
-      debugPrint('GoogleCastManager: seek failed: $e');
+      _log.error('seek failed', e);
+      throw CastMediaException('Failed to seek.');
     }
   }
 
   @override
   Future<void> setVolume(double volume) async {
     if (kIsWeb) return;
+    if (!isConnected) {
+      throw CastConnectionException('Not connected to a receiver.');
+    }
     try {
       GoogleCastSessionManager.instance
           .setDeviceVolume(volume.clamp(0.0, 1.0));
     } catch (e) {
-      debugPrint('GoogleCastManager: setVolume failed: $e');
+      _log.error('setVolume failed', e);
+      throw CastMediaException('Failed to set volume.');
     }
   }
 
@@ -486,6 +592,9 @@ class GoogleCastManager implements MediaCastingInterface {
   @override
   Future<void> queueLoad(List<MediaItem> items, {int startIndex = 0}) async {
     if (kIsWeb || items.isEmpty) return;
+    if (!isConnected) {
+      throw CastConnectionException('Not connected to a receiver.');
+    }
     try {
       _nextItemId = 1;
       final queueItems = items.map(_mediaToQueueItem).toList();
@@ -498,24 +607,32 @@ class GoogleCastManager implements MediaCastingInterface {
         options: options,
       );
     } catch (e) {
-      debugPrint('GoogleCastManager: queueLoad failed: $e');
+      _log.error('queueLoad failed', e);
+      throw CastMediaException('Failed to load queue on receiver.');
     }
   }
 
   @override
   Future<void> queueInsert(List<MediaItem> items) async {
     if (kIsWeb || items.isEmpty) return;
+    if (!isConnected) {
+      throw CastConnectionException('Not connected to a receiver.');
+    }
     try {
       final queueItems = items.map(_mediaToQueueItem).toList();
       await GoogleCastRemoteMediaClient.instance.queueInsertItems(queueItems);
     } catch (e) {
-      debugPrint('GoogleCastManager: queueInsert failed: $e');
+      _log.error('queueInsert failed', e);
+      throw CastMediaException('Failed to add items to queue.');
     }
   }
 
   @override
   Future<void> queueInsertAndPlay(MediaItem item) async {
     if (kIsWeb) return;
+    if (!isConnected) {
+      throw CastConnectionException('Not connected to a receiver.');
+    }
     try {
       final queueItem = _mediaToQueueItem(item);
       final status = GoogleCastRemoteMediaClient.instance.mediaStatus;
@@ -529,13 +646,15 @@ class GoogleCastManager implements MediaCastingInterface {
         await GoogleCastRemoteMediaClient.instance.queueInsertItems([queueItem]);
       }
     } catch (e) {
-      debugPrint('GoogleCastManager: queueInsertAndPlay failed: $e');
+      _log.error('queueInsertAndPlay failed', e);
+      throw CastMediaException('Failed to insert and play item.');
     }
   }
 
   @override
   Future<void> queueRemove(List<int> indices) async {
     if (kIsWeb || indices.isEmpty) return;
+    if (!isConnected) return;
     try {
       final currentItems = _latestQueue.items;
       final idsToRemove = <int>[];
@@ -549,13 +668,14 @@ class GoogleCastManager implements MediaCastingInterface {
             .queueRemoveItemsWithIds(idsToRemove);
       }
     } catch (e) {
-      debugPrint('GoogleCastManager: queueRemove failed: $e');
+      _log.error('queueRemove failed', e);
     }
   }
 
   @override
   Future<void> queueReorder(int oldIndex, int newIndex) async {
     if (kIsWeb) return;
+    if (!isConnected) return;
     try {
       final items = _latestQueue.items;
       if (oldIndex < 0 || oldIndex >= items.length) return;
@@ -570,53 +690,57 @@ class GoogleCastManager implements MediaCastingInterface {
         beforeItemWithId: beforeItemId,
       );
     } catch (e) {
-      debugPrint('GoogleCastManager: queueReorder failed: $e');
+      _log.error('queueReorder failed', e);
     }
   }
 
   @override
   Future<void> queueClear() async {
     if (kIsWeb) return;
+    if (!isConnected) return;
     try {
       final ids = _latestQueue.items.map((i) => i.castItemId).toList();
       if (ids.isNotEmpty) {
         await GoogleCastRemoteMediaClient.instance.queueRemoveItemsWithIds(ids);
       }
     } catch (e) {
-      debugPrint('GoogleCastManager: queueClear failed: $e');
+      _log.error('queueClear failed', e);
     }
   }
 
   @override
   Future<void> queueJumpTo(int index) async {
     if (kIsWeb) return;
+    if (!isConnected) return;
     try {
       final items = _latestQueue.items;
       if (index < 0 || index >= items.length) return;
       await GoogleCastRemoteMediaClient.instance
           .queueJumpToItemWithId(items[index].castItemId);
     } catch (e) {
-      debugPrint('GoogleCastManager: queueJumpTo failed: $e');
+      _log.error('queueJumpTo failed', e);
     }
   }
 
   @override
   Future<void> queueNext() async {
     if (kIsWeb) return;
+    if (!isConnected) return;
     try {
       await GoogleCastRemoteMediaClient.instance.queueNextItem();
     } catch (e) {
-      debugPrint('GoogleCastManager: queueNext failed: $e');
+      _log.error('queueNext failed', e);
     }
   }
 
   @override
   Future<void> queuePrevious() async {
     if (kIsWeb) return;
+    if (!isConnected) return;
     try {
       await GoogleCastRemoteMediaClient.instance.queuePrevItem();
     } catch (e) {
-      debugPrint('GoogleCastManager: queuePrevious failed: $e');
+      _log.error('queuePrevious failed', e);
     }
   }
 
@@ -630,5 +754,27 @@ class GoogleCastManager implements MediaCastingInterface {
     _mediaStatusController.close();
     _playerPositionController.close();
     _queueController.close();
+    _log.info('Disposed');
   }
+}
+
+class CastDiscoveryException implements Exception {
+  final String message;
+  const CastDiscoveryException(this.message);
+  @override
+  String toString() => 'CastDiscoveryException: $message';
+}
+
+class CastConnectionException implements Exception {
+  final String message;
+  const CastConnectionException(this.message);
+  @override
+  String toString() => 'CastConnectionException: $message';
+}
+
+class CastMediaException implements Exception {
+  final String message;
+  const CastMediaException(this.message);
+  @override
+  String toString() => 'CastMediaException: $message';
 }

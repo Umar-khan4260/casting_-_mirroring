@@ -2,6 +2,9 @@ import 'dart:async';
 import '../models/cast_device.dart';
 import 'device_discovery_service.dart';
 import '../casting_core/casting_manager.dart';
+import '../utils/cast_logger.dart';
+
+const _log = CastLogger('DiscoveryService');
 
 class RealDeviceDiscoveryService implements DeviceDiscoveryService {
   final CastingManager _castingManager = CastingManager();
@@ -19,8 +22,19 @@ class RealDeviceDiscoveryService implements DeviceDiscoveryService {
 
   @override
   Future<List<CastDevice>> discoverDevices() async {
-    await _castingManager.startMediaDiscovery();
-    await _castingManager.startMirroringMonitoring();
+    _log.info('Starting device discovery...');
+
+    try {
+      await _castingManager.startMediaDiscovery();
+    } catch (e) {
+      _log.error('Media discovery start failed', e);
+    }
+
+    try {
+      await _castingManager.startMirroringMonitoring();
+    } catch (e) {
+      _log.warning('Mirroring monitoring start failed (non-critical): $e');
+    }
 
     _mediaSubscription?.cancel();
     _mirroringSubscription?.cancel();
@@ -30,12 +44,18 @@ class RealDeviceDiscoveryService implements DeviceDiscoveryService {
         _mediaDevices = devices;
         _emitMerged();
       },
+      onError: (e) {
+        _log.error('Media device stream error', e);
+      },
     );
 
     _mirroringSubscription = _castingManager.discoveredMirroringDevices.listen(
       (devices) {
         _mirroringDevices = devices;
         _emitMerged();
+      },
+      onError: (e) {
+        _log.error('Mirroring device stream error', e);
       },
     );
 
@@ -62,16 +82,20 @@ class RealDeviceDiscoveryService implements DeviceDiscoveryService {
       }
     }
 
-    _mergedController.add(merged.values.toList());
+    final result = merged.values.toList();
+    _log.debug('Merged device list: ${result.length} device(s)');
+    _mergedController.add(result);
   }
 
   @override
   Future<void> connectToDevice(CastDevice device) async {
+    _log.info('Connecting to ${device.name}...');
     await _castingManager.connectMediaDevice(device);
   }
 
   @override
   Future<void> disconnectDevice(CastDevice device) async {
+    _log.info('Disconnecting from ${device.name}...');
     if (device.type == DeviceType.appleAirPlay) {
       await _castingManager.stopAirPlayRouting();
     } else {
@@ -85,5 +109,6 @@ class RealDeviceDiscoveryService implements DeviceDiscoveryService {
     _mergedController.close();
     _castingManager.stopMediaDiscovery();
     _castingManager.stopMirroringMonitoring();
+    _log.info('Disposed');
   }
 }

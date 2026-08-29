@@ -2,22 +2,10 @@ import 'dart:async';
 import '../models/cast_device.dart';
 import '../casting_core/interfaces/screen_mirroring_interface.dart';
 import 'air_play_channel.dart';
+import '../utils/cast_logger.dart';
 
-/// Manages screen mirroring via AirPlay on iOS.
-///
-/// ## iOS Platform Limitation
-///
-/// **Third-party apps CANNOT programmatically initiate full-device AirPlay mirroring.**
-/// The user must manually go to Control Center → Screen Mirroring to mirror
-/// the entire iPhone screen.
-///
-/// This manager provides:
-/// - AirPlay route availability detection
-/// - System AirPlay route picker presentation
-/// - Detection of active AirPlay/screen mirroring sessions
-///
-/// It does NOT provide programmatic full-device mirroring because iOS
-/// does not allow it. This is documented, not faked.
+const _log = CastLogger('ScreenMirror');
+
 class ScreenMirrorManager implements ScreenMirroringInterface {
   final AirPlayChannel _airPlayChannel = AirPlayChannel();
 
@@ -28,6 +16,7 @@ class ScreenMirrorManager implements ScreenMirroringInterface {
   String? _connectedRouteName;
   bool _isAirPlayAvailable = false;
   bool _isMonitoring = false;
+  StreamSubscription<Map<String, dynamic>>? _eventSubscription;
 
   @override
   Stream<List<CastDevice>> get discoveredDevices => _devicesController.stream;
@@ -46,18 +35,37 @@ class ScreenMirrorManager implements ScreenMirroringInterface {
     if (_isMonitoring) return;
     _isMonitoring = true;
 
-    _isAirPlayAvailable = await _airPlayChannel.isAirPlayAvailable();
+    try {
+      _isAirPlayAvailable = await _airPlayChannel.isAirPlayAvailable();
+      _log.info('AirPlay available: $_isAirPlayAvailable');
+    } catch (e) {
+      _log.error('Failed to check AirPlay availability', e);
+      _isAirPlayAvailable = false;
+    }
 
-    await _airPlayChannel.startMonitoring();
+    try {
+      await _airPlayChannel.startMonitoring();
+    } catch (e) {
+      _log.error('Failed to start AirPlay monitoring', e);
+      _mirroringState = MirroringState.error;
+      _emitDevices();
+      return;
+    }
 
-    // Listen for native events
-    _airPlayChannel.events.listen((event) {
-      _handleNativeEvent(event);
-    });
+    _eventSubscription?.cancel();
+    _eventSubscription = _airPlayChannel.events.listen(
+      _handleNativeEvent,
+      onError: (e) {
+        _log.error('AirPlay event stream error', e);
+      },
+    );
 
-    // Get initial status
-    final status = await _airPlayChannel.getMirroringStatus();
-    _updateFromStatus(status);
+    try {
+      final status = await _airPlayChannel.getMirroringStatus();
+      _updateFromStatus(status);
+    } catch (e) {
+      _log.error('Failed to get initial AirPlay status', e);
+    }
   }
 
   @override
@@ -65,24 +73,38 @@ class ScreenMirrorManager implements ScreenMirroringInterface {
     if (!_isMonitoring) return;
     _isMonitoring = false;
 
-    await _airPlayChannel.stopMonitoring();
+    await _eventSubscription?.cancel();
+    _eventSubscription = null;
+
+    try {
+      await _airPlayChannel.stopMonitoring();
+    } catch (e) {
+      _log.error('Failed to stop AirPlay monitoring', e);
+    }
   }
 
   @override
   Future<void> showRoutePicker() async {
-    await _airPlayChannel.showRoutePicker();
+    try {
+      await _airPlayChannel.showRoutePicker();
+    } catch (e) {
+      _log.error('Failed to show route picker', e);
+      _mirroringState = MirroringState.error;
+      _emitDevices();
+      return;
+    }
 
-    // Refresh status after picker is dismissed
     await Future.delayed(const Duration(milliseconds: 500));
-    final status = await _airPlayChannel.getMirroringStatus();
-    _updateFromStatus(status);
+    try {
+      final status = await _airPlayChannel.getMirroringStatus();
+      _updateFromStatus(status);
+    } catch (e) {
+      _log.error('Failed to refresh status after route picker', e);
+    }
   }
 
   @override
   Future<void> routeMediaTo(CastDevice device) async {
-    // On iOS, media routing to AirPlay is handled by the system route picker
-    // or by setting AVPlayer.allowsExternalPlayback = true.
-    // We present the route picker as the user-facing mechanism.
     await showRoutePicker();
   }
 
@@ -90,6 +112,8 @@ class ScreenMirrorManager implements ScreenMirroringInterface {
   Future<void> stopRouting() async {
     _mirroringState = MirroringState.idle;
     _connectedRouteName = null;
+    _emitDevices();
+    _log.info('Routing stopped');
   }
 
   void _handleNativeEvent(Map<String, dynamic> event) {
@@ -105,13 +129,17 @@ class ScreenMirrorManager implements ScreenMirroringInterface {
       case 'systemMirroringStarted':
         _mirroringState = MirroringState.systemMirroringActive;
         _connectedRouteName = data['connectedDeviceName'] as String?;
+        _log.info('System mirroring started: $_connectedRouteName');
         _emitDevices();
         break;
       case 'systemMirroringStopped':
         _mirroringState = MirroringState.idle;
         _connectedRouteName = null;
+        _log.info('System mirroring stopped');
         _emitDevices();
         break;
+      default:
+        _log.debug('Unknown native event: $type');
     }
   }
 
@@ -120,6 +148,8 @@ class ScreenMirrorManager implements ScreenMirroringInterface {
         status['isSystemMirroringActive'] as bool? ?? false;
     final isAirPlayConnected = status['isAirPlayConnected'] as bool? ?? false;
     final deviceName = status['connectedDeviceName'] as String?;
+
+    final previousState = _mirroringState;
 
     if (isSystemMirroring) {
       _mirroringState = MirroringState.systemMirroringActive;
@@ -136,11 +166,16 @@ class ScreenMirrorManager implements ScreenMirroringInterface {
       _connectedRouteName = null;
     }
 
+    if (previousState != _mirroringState) {
+      _log.debug('State: $previousState -> $_mirroringState');
+    }
+
     _emitDevices();
   }
 
   void _emitDevices() {
-    if (_mirroringState == MirroringState.idle) {
+    if (_mirroringState == MirroringState.idle ||
+        _mirroringState == MirroringState.error) {
       _devicesController.add([]);
       return;
     }
@@ -165,7 +200,9 @@ class ScreenMirrorManager implements ScreenMirroringInterface {
   }
 
   void dispose() {
+    _eventSubscription?.cancel();
     _devicesController.close();
     _airPlayChannel.dispose();
+    _log.info('Disposed');
   }
 }
