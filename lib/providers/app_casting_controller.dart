@@ -7,6 +7,7 @@ import '../models/cast_device.dart';
 import '../models/cast_queue_state.dart';
 import '../models/media_player_state.dart';
 import '../models/media_item.dart';
+import '../services/local_media_server.dart';
 import '../utils/cast_logger.dart';
 
 const _log = CastLogger('AppCasting');
@@ -17,6 +18,7 @@ class AppCastingController extends ChangeNotifier {
   AppCastingController._();
 
   late final CastingManager _castingManager = CastingManager();
+  final LocalMediaServer _localMediaServer = LocalMediaServer();
 
   MediaPlayerState _state = const MediaPlayerState();
   CastQueueState _queueState = const CastQueueState();
@@ -44,6 +46,12 @@ class AppCastingController extends ChangeNotifier {
       _state.status == PlayerStatus.loading;
   bool get isMirroring => _isMirroring;
   CastDevice? get mirroringDevice => _mirroringDevice;
+  LocalMediaServer get localMediaServer => _localMediaServer;
+
+  bool _isLocalFile(String? url) {
+    if (url == null) return true;
+    return !url.startsWith('http://') && !url.startsWith('https://');
+  }
 
   void _emit() {
     if (_streamController.isClosed) return;
@@ -61,7 +69,7 @@ class AppCastingController extends ChangeNotifier {
     GoogleCastManager().initialize();
 
     _devicesSubscription = _castingManager.discoveredMediaDevices.listen(
-      (devices) {
+      (devices) async {
         final connected = devices.where(
           (d) => d.connectionState == DeviceConnectionState.connected,
         );
@@ -71,6 +79,10 @@ class AppCastingController extends ChangeNotifier {
           _emit();
         } else if (_connectedDevice != null) {
           _log.warning('Receiver disconnected');
+          if (_localMediaServer.isServing) {
+            await _localMediaServer.stop();
+            _log.info('Local media server stopped on receiver disconnect');
+          }
           _connectedDevice = null;
           _state = _state.copyWith(
             connectedDevice: null,
@@ -186,7 +198,27 @@ class AppCastingController extends ChangeNotifier {
     _emit();
 
     try {
-      await _castingManager.loadMedia(media);
+      if (_isLocalFile(media.mediaUrl)) {
+        _log.info('Local file detected, starting server: ${media.mediaUrl}');
+        final localUrl = await _localMediaServer.start(media.mediaUrl!);
+        if (localUrl == null) {
+          _state = _state.copyWith(
+            status: PlayerStatus.error,
+            errorMessage: 'Failed to start local media server. '
+                'Check that you are connected to a Wi-Fi network.',
+          );
+          _emit();
+          return;
+        }
+        _log.info('Local server URL: $localUrl');
+        final castMedia = media.copyWith(
+          mediaUrl: localUrl,
+          thumbnailUrl: localUrl,
+        );
+        await _castingManager.loadMedia(castMedia);
+      } else {
+        await _castingManager.loadMedia(media);
+      }
     } on CastMediaException catch (e) {
       _log.error('loadAndCast media error', e);
       _state = _state.copyWith(
@@ -493,6 +525,10 @@ class AppCastingController extends ChangeNotifier {
     } catch (e) {
       _log.error('disconnect failed', e);
     }
+    if (_localMediaServer.isServing) {
+      await _localMediaServer.stop();
+      _log.info('Local media server stopped on disconnect');
+    }
     _state = const MediaPlayerState();
     _queueState = const CastQueueState();
     _connectedDevice = null;
@@ -546,6 +582,7 @@ class AppCastingController extends ChangeNotifier {
     _playerPositionSubscription?.cancel();
     _devicesSubscription?.cancel();
     _queueSubscription?.cancel();
+    _localMediaServer.stop();
     _streamController.close();
     _queueStreamController.close();
     _log.info('Disposed');

@@ -7,6 +7,7 @@ import 'settings_screen.dart';
 import 'cast_player_screen.dart';
 import '../models/media_player_state.dart';
 import '../providers/app_casting_controller.dart';
+import '../services/local_media_store.dart';
 import '../widgets/player/mini_player.dart';
 
 class MainShell extends StatefulWidget {
@@ -18,6 +19,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   final AppCastingController _castingController = AppCastingController();
+  final LocalMediaStore _mediaStore = LocalMediaStore();
 
   List<Widget> _buildScreens() {
     return [
@@ -34,12 +36,12 @@ class _MainShellState extends State<MainShell> {
           // Navigate to media library using Navigator
           Navigator.of(context).push(
             CupertinoPageRoute(
-              builder: (_) => const MediaLibraryScreen(),
+              builder: (_) => MediaLibraryScreen(mediaStore: _mediaStore),
             ),
           );
         },
       ),
-      const MediaLibraryScreen(),
+      MediaLibraryScreen(mediaStore: _mediaStore),
       const DevicesScreen(),
       const SettingsScreen(),
     ];
@@ -50,6 +52,7 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _castingController.initialize();
     _castingController.addListener(_onCastingChanged);
+    _mediaStore.load();
   }
 
   @override

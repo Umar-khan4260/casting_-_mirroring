@@ -2,15 +2,32 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../models/media_item.dart';
 import '../providers/app_casting_controller.dart';
+import '../services/local_media_store.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
 import 'cast_player_screen.dart';
 
-class MediaDetailScreen extends StatelessWidget {
+class MediaDetailScreen extends StatefulWidget {
   final MediaItem media;
+  final LocalMediaStore? mediaStore;
 
-  const MediaDetailScreen({super.key, required this.media});
+  const MediaDetailScreen({super.key, required this.media, this.mediaStore});
+
+  @override
+  State<MediaDetailScreen> createState() => _MediaDetailScreenState();
+}
+
+class _MediaDetailScreenState extends State<MediaDetailScreen> {
+  late MediaItem _media;
+
+  @override
+  void initState() {
+    super.initState();
+    _media = widget.media;
+  }
+
+  MediaItem get media => _media;
 
   @override
   Widget build(BuildContext context) {
@@ -25,16 +42,22 @@ class MediaDetailScreen extends StatelessWidget {
           style: AppTypography.heading3.copyWith(fontSize: 18),
         ),
         actions: [
-          IconButton(
-            icon: Icon(
-              media.isFavorite
-                  ? CupertinoIcons.heart_fill
-                  : CupertinoIcons.heart,
-              color: media.isFavorite ? AppColors.error : null,
-              size: 22,
+          if (widget.mediaStore != null)
+            IconButton(
+              icon: Icon(
+                media.isFavorite
+                    ? CupertinoIcons.heart_fill
+                    : CupertinoIcons.heart,
+                color: media.isFavorite ? AppColors.error : null,
+                size: 22,
+              ),
+              onPressed: () async {
+                await widget.mediaStore!.toggleFavorite(media.id);
+                setState(() {
+                  _media = _media.copyWith(isFavorite: !_media.isFavorite);
+                });
+              },
             ),
-            onPressed: () {},
-          ),
           IconButton(
             icon: const Icon(CupertinoIcons.share, size: 22),
             onPressed: () {},
@@ -77,6 +100,9 @@ class MediaDetailScreen extends StatelessWidget {
   }
 
   Widget _buildThumbnail() {
+    final isLocal = media.thumbnailUrl.isEmpty || 
+        (!media.thumbnailUrl.startsWith('http://') && !media.thumbnailUrl.startsWith('https://'));
+    
     return Container(
       width: double.infinity,
       color: CupertinoColors.black,
@@ -85,19 +111,30 @@ class MediaDetailScreen extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              media.thumbnailUrl,
-              fit: media.type == MediaType.music ? BoxFit.contain : BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Center(
-                  child: Icon(
-                    _typeIcon,
-                    color: CupertinoColors.systemGrey,
-                    size: 60,
+            isLocal
+                ? Container(
+                    color: CupertinoColors.black,
+                    child: Center(
+                      child: Icon(
+                        _typeIcon,
+                        color: CupertinoColors.systemGrey,
+                        size: 60,
+                      ),
+                    ),
+                  )
+                : Image.network(
+                    media.thumbnailUrl,
+                    fit: media.type == MediaType.music ? BoxFit.contain : BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Center(
+                        child: Icon(
+                          _typeIcon,
+                          color: CupertinoColors.systemGrey,
+                          size: 60,
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
             if (media.type == MediaType.video)
               Center(
                 child: Container(
@@ -161,6 +198,10 @@ class MediaDetailScreen extends StatelessWidget {
   }
 
   Widget _buildInfoSection() {
+    final isLocal = media.mediaUrl != null && 
+        !media.mediaUrl!.startsWith('http://') && 
+        !media.mediaUrl!.startsWith('https://');
+    
     return Container(
       padding: AppSpacing.paddingAllMd,
       decoration: BoxDecoration(
@@ -169,6 +210,8 @@ class MediaDetailScreen extends StatelessWidget {
       ),
       child: Column(
         children: [
+          if (isLocal)
+            _buildInfoRow(CupertinoIcons.location, 'Source', 'Local iPhone'),
           _buildInfoRow(CupertinoIcons.tag, 'Type', _typeLabel),
           if (media.album != null)
             _buildInfoRow(CupertinoIcons.collections, 'Album', media.album!),
