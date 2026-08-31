@@ -71,4 +71,38 @@ class MediaItem {
     }
     return '$minutes:${seconds.toString().padLeft(2, '0')}';
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'subtitle': subtitle,
+      'thumbnailUrl': thumbnailUrl,
+      'mediaUrl': mediaUrl,
+      'contentType': contentType,
+      'durationMs': duration.inMilliseconds,
+      'type': type.index,
+      'dateAdded': dateAdded.toIso8601String(),
+      'isFavorite': isFavorite,
+      'artist': artist,
+      'album': album,
+    };
+  }
+
+  factory MediaItem.fromMap(Map<String, dynamic> map) {
+    return MediaItem(
+      id: map['id'] as String,
+      title: map['title'] as String,
+      subtitle: map['subtitle'] as String? ?? '',
+      thumbnailUrl: map['thumbnailUrl'] as String? ?? '',
+      mediaUrl: map['mediaUrl'] as String?,
+      contentType: map['contentType'] as String? ?? 'video/mp4',
+      duration: Duration(milliseconds: map['durationMs'] as int? ?? 0),
+      type: MediaType.values[map['type'] as int? ?? 0],
+      dateAdded: DateTime.parse(map['dateAdded'] as String),
+      isFavorite: map['isFavorite'] as bool? ?? false,
+      artist: map['artist'] as String?,
+      album: map['album'] as String?,
+    );
+  }
 }

@@ -15,11 +15,15 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.2.0
   flutter_chrome_cast: ^1.4.8
+  file_picker: ^8.1.7
+  shelf: ^1.4.1
+  mime: ^2.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  mocktail: ^1.0.4
 
 flutter:
   uses-material-design: true
