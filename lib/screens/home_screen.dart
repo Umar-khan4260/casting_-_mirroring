@@ -1,20 +1,24 @@
 import 'package:flutter/cupertino.dart';
 import '../providers/app_casting_controller.dart';
+import '../models/media_item.dart';
 import '../models/media_player_state.dart';
-import '../mock/mock_media_data.dart';
+import '../services/local_media_store.dart';
 import '../theme/app_spacing.dart';
 import '../theme/app_typography.dart';
+import '../theme/app_colors.dart';
 import '../widgets/cards/action_card.dart';
 import '../widgets/cards/connected_device_card.dart';
 import 'cast_player_screen.dart';
 import 'screen_mirror_screen.dart';
 
 class HomeScreen extends StatelessWidget {
+  final LocalMediaStore mediaStore;
   final VoidCallback? onSwitchToDevices;
   final VoidCallback? onSwitchToMedia;
 
   const HomeScreen({
     super.key,
+    required this.mediaStore,
     this.onSwitchToDevices,
     this.onSwitchToMedia,
   });
@@ -28,9 +32,15 @@ class HomeScreen extends StatelessWidget {
         final playerState = controller.state;
         final isConnected = playerState.isConnected;
         final connectedDevice = playerState.connectedDevice;
+        final recentMedia = mediaStore.recentlyAdded(days: 7);
 
         return CupertinoPageScaffold(
-          navigationBar: const CupertinoNavigationBar(middle: Text('Casting App')),
+          backgroundColor: AppColors.background,
+          navigationBar: const CupertinoNavigationBar(
+            middle: Text('Casting App'),
+            backgroundColor: AppColors.surface,
+            border: Border(),
+          ),
           child: SafeArea(
             child: ListView(
               padding: AppSpacing.paddingAllLg,
@@ -39,7 +49,7 @@ class HomeScreen extends StatelessWidget {
                 Text(
                   isConnected ? 'Connected Device' : 'No Device Connected',
                   style: AppTypography.bodyMedium.copyWith(
-                    color: CupertinoColors.systemGrey,
+                    color: AppColors.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.center,
@@ -58,7 +68,7 @@ class HomeScreen extends StatelessWidget {
                       ? 'Play videos, photos and music'
                       : 'Connect to a device first',
                   icon: CupertinoIcons.play_rectangle,
-                  iconColor: CupertinoColors.activeBlue,
+                  iconColor: AppColors.primary,
                   onTap: isConnected
                       ? (onSwitchToMedia ?? () {})
                       : (onSwitchToDevices ?? () {}),
@@ -67,7 +77,7 @@ class HomeScreen extends StatelessWidget {
                   title: 'Mirror Screen',
                   subtitle: 'AirPlay media routing & screen mirroring guide',
                   icon: CupertinoIcons.device_phone_portrait,
-                  iconColor: CupertinoColors.systemPurple,
+                  iconColor: AppColors.secondary,
                   onTap: () {
                     Navigator.of(context).push(
                       CupertinoPageRoute(
@@ -87,26 +97,54 @@ class HomeScreen extends StatelessWidget {
                 ] else ...[
                   Text('Recent Media', style: AppTypography.heading3),
                   const SizedBox(height: AppSpacing.md),
-                  SizedBox(
-                    height: 200,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: MockMediaData.recentlyAdded().length,
-                      itemBuilder: (context, index) {
-                        final media = MockMediaData.recentlyAdded()[index];
-                        return Container(
-                          width: 160,
-                          margin: const EdgeInsets.only(right: AppSpacing.md),
-                          child: _MediaCardHorizontal(
-                            media: media,
-                            onTap: isConnected
-                                ? () => controller.loadAndCast(media)
-                                : () {},
+                  if (recentMedia.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Column(
+                        children: [
+                          Icon(
+                            CupertinoIcons.clock,
+                            size: 40,
+                            color: AppColors.textSecondary.withValues(alpha: 0.5),
                           ),
-                        );
-                      },
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            'No recent media',
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Add media to see it here',
+                            style: AppTypography.bodySmall.copyWith(
+                              color: AppColors.textSecondary.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    SizedBox(
+                      height: 200,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: recentMedia.length,
+                        itemBuilder: (context, index) {
+                          final media = recentMedia[index];
+                          return Container(
+                            width: 160,
+                            margin: const EdgeInsets.only(right: AppSpacing.md),
+                            child: _MediaCardHorizontal(
+                              media: media,
+                              onTap: isConnected
+                                  ? () => controller.loadAndCast(media)
+                                  : () {},
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
                 ],
                 const SizedBox(height: AppSpacing.xxl),
               ],
@@ -143,11 +181,18 @@ class _NowPlayingCard extends StatelessWidget {
       child: Container(
         padding: AppSpacing.paddingAllMd,
         decoration: BoxDecoration(
-          color: CupertinoColors.activeBlue,
+          gradient: LinearGradient(
+            colors: [
+              AppColors.primary,
+              AppColors.primary.withValues(alpha: 0.8),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(AppSpacing.borderRadiusLg),
           boxShadow: [
             BoxShadow(
-              color: CupertinoColors.activeBlue.withAlpha(76),
+              color: AppColors.primary.withValues(alpha: 0.3),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -166,7 +211,7 @@ class _NowPlayingCard extends StatelessWidget {
                   return Container(
                     width: 60,
                     height: 60,
-                    color: CupertinoColors.white.withAlpha(26),
+                    color: CupertinoColors.white.withValues(alpha: 0.2),
                     child: const Icon(
                       CupertinoIcons.music_note,
                       color: CupertinoColors.white,
@@ -193,7 +238,7 @@ class _NowPlayingCard extends StatelessWidget {
                   Text(
                     playerState.isPlaying ? 'Playing' : 'Paused',
                     style: AppTypography.bodySmall.copyWith(
-                      color: CupertinoColors.white.withAlpha(204),
+                      color: CupertinoColors.white.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -214,7 +259,7 @@ class _NowPlayingCard extends StatelessWidget {
 }
 
 class _MediaCardHorizontal extends StatelessWidget {
-  final dynamic media;
+  final MediaItem media;
   final VoidCallback onTap;
 
   const _MediaCardHorizontal({required this.media, required this.onTap});
@@ -225,11 +270,11 @@ class _MediaCardHorizontal extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: CupertinoColors.systemBackground,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.borderRadiusMd),
           boxShadow: [
             BoxShadow(
-              color: CupertinoColors.systemGrey.withAlpha(26),
+              color: AppColors.cardShadow,
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -242,7 +287,7 @@ class _MediaCardHorizontal extends StatelessWidget {
             AspectRatio(
               aspectRatio: 16 / 9,
               child: Container(
-                color: CupertinoColors.systemGroupedBackground,
+                color: AppColors.background,
                 child: Image.network(
                   media.thumbnailUrl,
                   fit: BoxFit.cover,
@@ -250,7 +295,7 @@ class _MediaCardHorizontal extends StatelessWidget {
                     return const Center(
                       child: Icon(
                         CupertinoIcons.photo,
-                        color: CupertinoColors.systemGrey,
+                        color: AppColors.textSecondary,
                       ),
                     );
                   },
@@ -274,7 +319,7 @@ class _MediaCardHorizontal extends StatelessWidget {
                   Text(
                     media.subtitle,
                     style: AppTypography.bodySmall.copyWith(
-                      color: CupertinoColors.systemGrey,
+                      color: AppColors.textSecondary,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

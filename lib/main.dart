@@ -47,9 +47,13 @@ class CastingApp extends StatelessWidget {
         title: 'Cast & Mirror',
         debugShowCheckedModeBanner: false,
         theme: const CupertinoThemeData(
+          brightness: Brightness.light,
           primaryColor: CupertinoColors.activeBlue,
           scaffoldBackgroundColor: CupertinoColors.systemGroupedBackground,
           barBackgroundColor: CupertinoColors.systemBackground,
+          textTheme: CupertinoTextThemeData(
+            primaryColor: CupertinoColors.activeBlue,
+          ),
         ),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,

@@ -40,6 +40,8 @@ class _QueueScreenState extends State<QueueScreen> {
       backgroundColor: AppColors.background,
       navigationBar: CupertinoNavigationBar(
         middle: const Text('Queue'),
+        backgroundColor: AppColors.surface,
+        border: const Border(),
         leading: GestureDetector(
           onTap: () => Navigator.of(context).pop(),
           child: const Icon(CupertinoIcons.back, size: 22),

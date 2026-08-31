@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../../theme/app_colors.dart';
 
 class ActionCard extends StatelessWidget {
   final String title;
@@ -15,7 +16,7 @@ class ActionCard extends StatelessWidget {
     required this.subtitle,
     required this.icon,
     required this.onTap,
-    this.iconColor = CupertinoColors.activeBlue,
+    this.iconColor = AppColors.primary,
   });
 
   @override
@@ -26,11 +27,11 @@ class ActionCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: AppSpacing.md),
         padding: AppSpacing.paddingAllLg,
         decoration: BoxDecoration(
-          color: CupertinoColors.systemBackground,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.borderRadiusLg),
           boxShadow: [
             BoxShadow(
-              color: CupertinoColors.systemGrey.withAlpha(26),
+              color: AppColors.cardShadow,
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -41,7 +42,7 @@ class ActionCard extends StatelessWidget {
             Container(
               padding: AppSpacing.paddingAllMd,
               decoration: BoxDecoration(
-                color: iconColor.withAlpha(26),
+                color: iconColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppSpacing.borderRadiusMd),
               ),
               child: Icon(icon, size: 32, color: iconColor),
@@ -61,7 +62,7 @@ class ActionCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: AppTypography.bodyMedium.copyWith(
-                      color: CupertinoColors.systemGrey,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -69,7 +70,7 @@ class ActionCard extends StatelessWidget {
             ),
             const Icon(
               CupertinoIcons.chevron_right,
-              color: CupertinoColors.systemGrey3,
+              color: AppColors.textSecondary,
             ),
           ],
         ),

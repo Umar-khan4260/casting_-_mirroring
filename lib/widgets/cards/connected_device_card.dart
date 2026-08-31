@@ -27,15 +27,13 @@ class ConnectedDeviceCard extends StatelessWidget {
         width: double.infinity,
         padding: AppSpacing.paddingAllLg,
         decoration: BoxDecoration(
-          color: isConnected
-              ? CupertinoColors.activeBlue
-              : CupertinoColors.systemBackground,
+          color: isConnected ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.borderRadiusLg),
           boxShadow: [
             BoxShadow(
               color: isConnected
-                  ? CupertinoColors.activeBlue.withAlpha(76)
-                  : CupertinoColors.systemGrey.withAlpha(26),
+                  ? AppColors.primary.withValues(alpha: 0.3)
+                  : AppColors.cardShadow,
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -45,7 +43,7 @@ class ConnectedDeviceCard extends StatelessWidget {
           children: [
             if (isConnecting)
               const CupertinoActivityIndicator(
-                color: CupertinoColors.activeBlue,
+                color: AppColors.primary,
                 radius: 24,
               )
             else
@@ -54,7 +52,7 @@ class ConnectedDeviceCard extends StatelessWidget {
                 size: 48,
                 color: isConnected
                     ? CupertinoColors.white
-                    : CupertinoColors.systemGrey,
+                    : AppColors.textSecondary,
               ),
             const SizedBox(height: AppSpacing.md),
             Text(
@@ -77,8 +75,8 @@ class ConnectedDeviceCard extends StatelessWidget {
                       : 'Tap to connect',
               style: AppTypography.bodyMedium.copyWith(
                 color: isConnected
-                    ? CupertinoColors.white.withAlpha(204)
-                    : CupertinoColors.systemGrey,
+                    ? CupertinoColors.white.withValues(alpha: 0.8)
+                    : AppColors.textSecondary,
               ),
             ),
           ],

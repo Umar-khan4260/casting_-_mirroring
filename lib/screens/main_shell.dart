@@ -24,6 +24,7 @@ class _MainShellState extends State<MainShell> {
   List<Widget> _buildScreens() {
     return [
       HomeScreen(
+        mediaStore: _mediaStore,
         onSwitchToDevices: () {
           // Navigate to devices screen using Navigator
           Navigator.of(context).push(

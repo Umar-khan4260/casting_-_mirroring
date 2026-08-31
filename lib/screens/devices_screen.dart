@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../models/cast_device.dart';
 import '../providers/device_discovery_provider.dart';
@@ -22,35 +23,42 @@ class DevicesScreen extends StatefulWidget {
 class _DevicesScreenState extends State<DevicesScreen> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Select a Device')),
-      body: Builder(
-        builder: (context) {
-          final provider = DeviceDiscoveryProvider.of(context);
+    return CupertinoPageScaffold(
+      backgroundColor: AppColors.background,
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Select a Device'),
+        backgroundColor: AppColors.surface,
+        border: Border(),
+      ),
+      child: SafeArea(
+        child: Builder(
+          builder: (context) {
+            final provider = DeviceDiscoveryProvider.of(context);
 
-          switch (provider.state) {
-            case DiscoveryState.idle:
-            case DiscoveryState.loading:
-              return const LoadingState();
+            switch (provider.state) {
+              case DiscoveryState.idle:
+              case DiscoveryState.loading:
+                return const LoadingState();
 
-            case DiscoveryState.error:
-              return ErrorState(
-                message: provider.errorMessage ?? 'Something went wrong.',
-                onRetry: () => provider.discoverDevices(),
-              );
-
-            case DiscoveryState.loaded:
-              if (provider.devices.isEmpty) {
-                return EmptyState(
-                  title: 'No devices found',
-                  message:
-                      'Make sure your casting device is on the same Wi-Fi network.',
-                  icon: Icons.devices_other,
+              case DiscoveryState.error:
+                return ErrorState(
+                  message: provider.errorMessage ?? 'Something went wrong.',
+                  onRetry: () => provider.discoverDevices(),
                 );
-              }
-              return _buildDeviceList(provider);
-          }
-        },
+
+              case DiscoveryState.loaded:
+                if (provider.devices.isEmpty) {
+                  return EmptyState(
+                    title: 'No devices found',
+                    message:
+                        'Make sure your casting device is on the same Wi-Fi network.',
+                    icon: CupertinoIcons.device_desktop,
+                  );
+                }
+                return _buildDeviceList(provider);
+            }
+          },
+        ),
       ),
     );
   }
@@ -129,7 +137,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
 
   void _onMirrorScreen(BuildContext context, CastDevice device) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      CupertinoPageRoute(
         builder: (_) => const ScreenMirrorScreen(),
       ),
     );

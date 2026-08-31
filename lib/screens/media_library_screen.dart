@@ -314,14 +314,14 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
             ),
           _buildAddMediaButtons(),
           Container(
-            height: 52,
-            color: CupertinoColors.systemBackground,
+            height: 44,
+            color: Colors.transparent,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               itemCount: MediaCategory.values.length,
               separatorBuilder: (context, index) =>
-                  const SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final cat = MediaCategory.values[index];
                 final isSelected = _selectedCategory == cat;
@@ -333,42 +333,47 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
                   },
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
-                      vertical: 14,
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? AppColors.primary
-                          : AppColors.background,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.borderRadiusSm + 4),
-                      border: Border.all(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.divider,
-                        width: 1,
-                      ),
+                          : CupertinoColors.systemGrey6,
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      _categoryLabel(cat),
-                      style: AppTypography.bodyMedium.copyWith(
-                        color: isSelected
-                            ? CupertinoColors.white
-                            : AppColors.textPrimary,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
-                      ),
+                    alignment: Alignment.center,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _categoryIcon(cat),
+                          size: 16,
+                          color: isSelected
+                              ? CupertinoColors.white
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _categoryLabel(cat),
+                          style: AppTypography.bodyMedium.copyWith(
+                            color: isSelected
+                                ? CupertinoColors.white
+                                : AppColors.textPrimary,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
               },
             ),
           ),
-          Container(
-            height: 1,
-            color: AppColors.divider.withValues(alpha: 0.3),
-          ),
+          const SizedBox(height: 4),
           Expanded(
             child: media.isEmpty
                 ? _buildEmptyState()
@@ -392,9 +397,26 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
       case MediaCategory.music:
         return 'Music';
       case MediaCategory.recent:
-        return 'Recently Added';
+        return 'Recent';
       case MediaCategory.favorites:
         return 'Favorites';
+    }
+  }
+
+  IconData _categoryIcon(MediaCategory cat) {
+    switch (cat) {
+      case MediaCategory.all:
+        return CupertinoIcons.square_grid_2x2;
+      case MediaCategory.videos:
+        return CupertinoIcons.film;
+      case MediaCategory.photos:
+        return CupertinoIcons.photo;
+      case MediaCategory.music:
+        return CupertinoIcons.music_note;
+      case MediaCategory.recent:
+        return CupertinoIcons.clock;
+      case MediaCategory.favorites:
+        return CupertinoIcons.heart;
     }
   }
 

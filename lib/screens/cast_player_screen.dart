@@ -38,6 +38,8 @@ class _CastPlayerScreenState extends State<CastPlayerScreen> {
         backgroundColor: AppColors.background,
         navigationBar: CupertinoNavigationBar(
           middle: const Text('Now Casting'),
+          backgroundColor: AppColors.surface,
+          border: const Border(),
           leading: GestureDetector(
             onTap: () {
               Navigator.of(context).pop();

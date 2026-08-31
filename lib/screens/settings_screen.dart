@@ -39,26 +39,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Settings')),
-        body: const Center(child: CupertinoActivityIndicator()),
+      return CupertinoPageScaffold(
+        backgroundColor: AppColors.background,
+        navigationBar: const CupertinoNavigationBar(
+          middle: Text('Settings'),
+          backgroundColor: AppColors.surface,
+          border: Border(),
+        ),
+        child: const Center(child: CupertinoActivityIndicator()),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        children: [
-          const SizedBox(height: AppSpacing.sm),
-          _buildGeneralSection(),
-          const SizedBox(height: AppSpacing.lg),
-          _buildCastingSection(),
-          const SizedBox(height: AppSpacing.lg),
-          _buildScreenMirroringSection(),
-          const SizedBox(height: AppSpacing.lg),
-          _buildAboutSection(),
-          const SizedBox(height: AppSpacing.xxl),
-        ],
+    return CupertinoPageScaffold(
+      backgroundColor: AppColors.background,
+      navigationBar: const CupertinoNavigationBar(
+        middle: Text('Settings'),
+        backgroundColor: AppColors.surface,
+        border: Border(),
+      ),
+      child: SafeArea(
+        child: ListView(
+          children: [
+            const SizedBox(height: AppSpacing.md),
+            _buildGeneralSection(),
+            const SizedBox(height: AppSpacing.lg),
+            _buildCastingSection(),
+            const SizedBox(height: AppSpacing.lg),
+            _buildScreenMirroringSection(),
+            const SizedBox(height: AppSpacing.lg),
+            _buildAboutSection(),
+            const SizedBox(height: AppSpacing.xxl),
+          ],
+        ),
       ),
     );
   }
