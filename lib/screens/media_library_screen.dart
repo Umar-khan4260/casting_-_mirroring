@@ -499,115 +499,44 @@ class _MediaLibraryScreenState extends State<MediaLibraryScreen> {
         AppSpacing.md,
         AppSpacing.sm,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildPickButton(
-              icon: CupertinoIcons.video_camera,
-              label: 'Video',
-              color: AppColors.primary,
-              onTap: _pickVideo,
+      child: GestureDetector(
+        onTap: _pickMedia,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                AppColors.primary,
+                AppColors.primary.withValues(alpha: 0.8),
+              ],
             ),
+            borderRadius: BorderRadius.circular(AppSpacing.borderRadiusMd),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: _buildPickButton(
-              icon: CupertinoIcons.photo_camera,
-              label: 'Photo',
-              color: AppColors.secondary,
-              onTap: _pickPhoto,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: _buildPickButton(
-              icon: CupertinoIcons.music_note,
-              label: 'Audio',
-              color: AppColors.success,
-              onTap: _pickAudio,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPickButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              color,
-              color.withValues(alpha: 0.8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                CupertinoIcons.plus_circle,
+                color: CupertinoColors.white,
+                size: 22,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Add Media',
+                style: AppTypography.bodyLarge.copyWith(
+                  color: CupertinoColors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
-          borderRadius: BorderRadius.circular(AppSpacing.borderRadiusMd),
-        ),
-        child: Column(
-          children: [
-            Icon(
-              icon,
-              color: CupertinoColors.white,
-              size: 24,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              label,
-              style: AppTypography.bodyMedium.copyWith(
-                color: CupertinoColors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 
-  Future<void> _pickVideo() async {
-    final picked = await LocalMediaPicker.pickVideo();
-    if (picked == null) return;
-
-    final mediaItem = LocalMediaPicker.toMediaItem(picked);
-    await widget.mediaStore.add(mediaItem);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added: ${mediaItem.title}'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  Future<void> _pickPhoto() async {
-    final picked = await LocalMediaPicker.pickPhoto();
-    if (picked == null) return;
-
-    final mediaItem = LocalMediaPicker.toMediaItem(picked);
-    await widget.mediaStore.add(mediaItem);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Added: ${mediaItem.title}'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
-
-  Future<void> _pickAudio() async {
-    final picked = await LocalMediaPicker.pickAudio();
+  Future<void> _pickMedia() async {
+    final picked = await LocalMediaPicker.pickMedia();
     if (picked == null) return;
 
     final mediaItem = LocalMediaPicker.toMediaItem(picked);

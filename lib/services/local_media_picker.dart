@@ -136,6 +136,44 @@ class LocalMediaPicker {
     }
   }
 
+  static Future<PickedLocalMedia?> pickMedia() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        _log.debug('User cancelled media picker');
+        return null;
+      }
+
+      final file = result.files.first;
+      if (file.path == null) {
+        _log.error('Picked file has no path');
+        return null;
+      }
+
+      final path = file.path!;
+      final fileName = _getFileName(path);
+      final fileSize = file.size;
+      final ext = _getExtension(path).toLowerCase();
+      final type = _mediaTypeFromExtension(ext);
+
+      _log.info('Picked media: $fileName (${_formatFileSize(fileSize)}, ${type.name})');
+
+      return PickedLocalMedia(
+        filePath: path,
+        fileName: fileName,
+        fileSize: fileSize,
+        type: type,
+      );
+    } catch (e) {
+      _log.error('Failed to pick media', e);
+      return null;
+    }
+  }
+
   static MediaItem toMediaItem(PickedLocalMedia picked) {
     return MediaItem(
       id: 'local_${DateTime.now().millisecondsSinceEpoch}_${picked.fileName.hashCode}',
